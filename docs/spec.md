@@ -252,7 +252,7 @@ Training data for either path: synthetic pages rendered from the official blank 
 
 ([evaluation ticket](https://github.com/martinnbejarano/checkbox-detection/issues/6))
 
-### Ground truth
+### Ground truth (the 4 samples)
 
 `tests/data/ground_truth/sample-00N.json`:
 
@@ -267,13 +267,31 @@ Training data for either path: synthetic pages rendered from the official blank 
 
 Allowed tags: `watermark`, `color_fill`, `handwriting`, `checkmark`, `partial_fill`, `touches_line`.
 
-Labeling procedure:
+**Labeling policy** (applies to the ground truth and to the classifier's target):
 
-1. Run `scripts/prelabel.py` to get a draft.
-2. Correct the draft by hand with `scripts/draw_boxes.py` overlays, or in Label Studio if the draft is far off.
-3. Commit the corrected JSON.
+- A box is a printed **square or rectangle**. Round radio buttons are out of scope (listed as a README limitation).
+- `is_checked: true` means an **intentional mark mostly inside the box**: an X, a ✓, or a full or partial fill.
+- `is_checked: false` covers these cases:
+  - a stray stroke that only crosses the box (such as the hand-drawn lines on the cropped sample);
+  - watermark ink;
+  - colored cell fill;
+  - an empty box.
 
-Budget: 1–2 hours.
+**Labeling procedure.** Claude does the labeling.
+
+1. **Label from the image, not from the detector.** Claude labels each sample by looking at zoomed tiles of the page, before running `prelabel.py`. This keeps the ground truth independent of the detector's parameters.
+2. **Reconcile.** Run `prelabel.py`, then diff it against the labels. Look again at every disagreement in the image and fix the label only when the image shows the label was wrong. Never change a label to match the detector.
+3. **Spot-check (human).** The user reviews `draw_boxes.py` overlays of the ground truth for all 4 samples, about 15 minutes, and flags errors. The ground truth is committed only after this review.
+
+Because Claude also builds the detector, the main evidence of generalization is the **external set** below. Its labels were made by third parties.
+
+### External evaluation set (never used for tuning)
+
+About 15–20 pages from the public-domain Roboflow housing-forms dataset (`annotation-mmvj7/new_merge_project`). They are chosen to differ from the samples in layout and box size, and converted to the same ground-truth JSON with class names remapped to `is_checked`. They are stored under `tests/data/external/` with a README giving the source, license and selection rule.
+
+- Parameters are tuned **only** on the 4 samples.
+- The README reports both tables: "samples (tuned)" and "external (unseen)".
+- The decision to escalate to the CNN is a human checkpoint. The user looks at both tables, broken down by tag and by scale. There is no fixed threshold.
 
 ### `scripts/evaluate.py`
 
@@ -392,6 +410,13 @@ Sections:
 8. `TODO(prod)` list.
 
 ## 15. Build order
+
+**Workflow:** one GitHub ticket per vertical slice (about 8–10 tickets). Each ticket is built in a fresh `/implement` session on its own branch, opens a PR against `main` that links the ticket, and is merged by the user. There are three human checkpoints:
+
+1. ground-truth spot-check;
+2. escalation decision;
+3. approval before the Railway deploy (the user has an account; the deploy uses the Railway CLI).
+
 
 1. Scaffold: `pyproject.toml`, Makefile, `config.py`, `main.py`, and `/health` with a stub detector. Get `make check` green.
 2. `imaging/` with its tests (images first, then PDF).
