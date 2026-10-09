@@ -13,7 +13,7 @@ Build an HTTP service with one endpoint, `POST /detect`. It finds every checkbox
 What makes the work good, in priority order:
 
 1. **Readable code.** Someone new to the repo can tell where each step runs.
-2. **Measured results.** Every accuracy claim comes from `scripts/evaluate.py`, not from looking at images.
+2. **Measured results.** Every accuracy claim comes from `backend/scripts/evaluate.py`, not from looking at images.
 3. **Works on unseen forms.** Nothing depends on the samples' box size or resolution (section 6, "Scale independence").
 4. **Swappable detection.** Replacing the OpenCV detector with a learned model touches one module and one setting.
 5. **Efficient and safe on CPU.** Uploads are validated before any expensive work.
@@ -108,53 +108,58 @@ class Box:
 
 ```
 checkbox-detection/
-├── pyproject.toml            # uv project; ruff, mypy, pytest config
-├── uv.lock
-├── .python-version           # 3.13
-├── Makefile                  # install, lint, typecheck, test, eval, run, docker-build, docker-run
-├── Dockerfile
-├── .dockerignore
 ├── README.md                 # the writeup: run, approach, results table, tradeoffs, limitations
+├── Makefile                  # single entry point; delegates to backend/ (uv) and frontend/ (npm)
+├── railway.toml              # points Railway at backend/Dockerfile (build context = repo root)
 ├── .agents/                  # agent working material, not user docs: this spec + research notes behind each decision
 │   ├── spec.md               # this file
 │   └── research/
-├── samples/                  # the 4 challenge images (sample-000 … sample-003.png)
+├── samples/                  # the 4 challenge images; shared input data for backend tests/eval and manual frontend testing
 ├── frontend/                 # demo page: React + Vite + TS (section 13); built into frontend/dist
-├── src/checkbox_detection/
-│   ├── main.py               # create_app(): settings, logging, lifespan (load + warm up detector), routes, error handlers, static mount of frontend/dist
-│   ├── config.py             # Settings (pydantic-settings, prefix CHECKBOX_)
-│   ├── logging.py            # JSON log formatter + request-id/timing middleware
-│   ├── api/
-│   │   ├── routes.py         # POST /detect, GET /health; the only module with FastAPI routes
-│   │   ├── schemas.py        # BoxOut, DetectResponse (Pydantic)
-│   │   └── errors.py         # imaging/detection errors → problem+json
-│   ├── imaging/
-│   │   ├── __init__.py       # load_pages(data: bytes, settings) -> list[Page]
-│   │   ├── errors.py         # UnsupportedFormat, InputTooLarge, CorruptInput (no HTTP knowledge)
-│   │   ├── images.py         # Pillow decode: format allow-list, pixel cap, EXIF transpose, keep L or RGB
-│   │   └── pdf.py            # pypdfium2 rasterization under a global lock
-│   └── detection/
-│       ├── __init__.py       # Detector Protocol, DETECTORS = {"opencv": OpenCVDetector}, build_detector()
-│       ├── types.py          # Box
-│       ├── geometry.py       # iou(), nms(), sort_reading_order()
-│       └── opencv/
-│           ├── detector.py   # OpenCVDetector: wires the steps, holds parameters
-│           ├── preprocess.py # color-overlay removal, binarization
-│           ├── candidates.py # find_candidates(binary) -> list of rectangles
-│           └── classify.py   # fill_ratio(), is_checked threshold
-├── scripts/
-│   ├── evaluate.py           # metrics against ground truth (section 7)
-│   ├── prelabel.py           # runs the detector, writes ground-truth JSON drafts for correction
-│   └── draw_boxes.py         # writes a PNG with boxes drawn, for visual review
-└── tests/
-    ├── conftest.py
-    ├── data/ground_truth/    # sample-00N.json (hand-corrected labels)
-    ├── test_geometry.py
-    ├── test_opencv_detector.py  # synthetic images drawn with cv2
-    ├── test_imaging.py
-    ├── test_api.py
-    └── test_golden.py        # real samples vs ground truth, with tolerances
+└── backend/                  # everything Python: service, scripts, tests, container
+    ├── pyproject.toml        # uv project; ruff, mypy, pytest config
+    ├── uv.lock
+    ├── .python-version       # 3.13
+    ├── Dockerfile            # multi-stage; builds frontend too, so build context is the repo root
+    ├── Dockerfile.dockerignore  # BuildKit picks this up for backend/Dockerfile
+    ├── src/checkbox_detection/
+    │   ├── main.py           # create_app(): settings, logging, lifespan (load + warm up detector), routes, error handlers, optional static mount
+    │   ├── config.py         # Settings (pydantic-settings, prefix CHECKBOX_)
+    │   ├── logging.py        # JSON log formatter + request-id/timing middleware
+    │   ├── api/
+    │   │   ├── routes.py     # POST /detect, GET /health; the only module with FastAPI routes
+    │   │   ├── schemas.py    # BoxOut, DetectResponse (Pydantic)
+    │   │   └── errors.py     # imaging/detection errors → problem+json
+    │   ├── imaging/
+    │   │   ├── __init__.py   # load_pages(data: bytes, settings) -> list[Page]
+    │   │   ├── errors.py     # UnsupportedFormat, InputTooLarge, CorruptInput (no HTTP knowledge)
+    │   │   ├── images.py     # Pillow decode: format allow-list, pixel cap, EXIF transpose, keep L or RGB
+    │   │   └── pdf.py        # pypdfium2 rasterization under a global lock
+    │   └── detection/
+    │       ├── __init__.py   # Detector Protocol, DETECTORS = {"opencv": OpenCVDetector}, build_detector()
+    │       ├── types.py      # Box
+    │       ├── geometry.py   # iou(), nms(), sort_reading_order()
+    │       └── opencv/
+    │           ├── detector.py   # OpenCVDetector: wires the steps, holds parameters
+    │           ├── preprocess.py # to_clean_gray(), binarization
+    │           ├── candidates.py # find_candidates(binary) -> list of rectangles
+    │           └── classify.py   # fill_ratio(), is_checked threshold
+    ├── scripts/
+    │   ├── evaluate.py       # metrics against ground truth (section 7)
+    │   ├── prelabel.py       # runs the detector, writes ground-truth JSON drafts for correction
+    │   └── draw_boxes.py     # writes a PNG with boxes drawn, for visual review
+    └── tests/
+        ├── conftest.py       # resolves samples/ from the repo root
+        ├── data/ground_truth/    # sample-00N.json (labels for samples/)
+        ├── data/external/        # unseen external evaluation pages + labels
+        ├── test_geometry.py
+        ├── test_opencv_detector.py  # synthetic images drawn with cv2
+        ├── test_imaging.py
+        ├── test_api.py
+        └── test_golden.py    # real samples vs ground truth, with tolerances
 ```
+
+**Rule:** `frontend/` and `backend/` are independent projects that share only the HTTP contract. Neither imports from the other. The root holds only what spans both: the README, the Makefile, the Railway config, the shared samples and the agent material.
 
 Each package has a short module docstring that says what it does and what it must not import.
 
@@ -256,7 +261,7 @@ Every threshold lives in one frozen `OpenCVParams` dataclass with a comment per 
 | State accuracy is the main error (watermark, ✓, faint marks) | Replace `classify()` with a small ONNX CNN (`not_checkbox` / `unchecked` / `checked`) on 32×32 crops. Run it with `onnxruntime`. The API does not need PyTorch. | New `detection/hybrid/`. Reuses `opencv/candidates.py`. Registered as `"hybrid"`. |
 | Detection recall is the main error (boxes fused with lines, hand-drawn strokes) | Fine-tune an Apache-2.0 detector (RF-DETR Nano/Small; YOLO26 only if AGPL is acceptable). Export to ONNX. Run on 1024 px tiles with global NMS. | New `detection/learned/`. Registered as `"learned"`. |
 
-Training data for either path: synthetic pages rendered from the official blank 1004 / 1004MC / 1004C PDFs (every checkbox is a vector square, so labels are exact), plus real scans from Roboflow (861 public-domain housing forms, 2,830 CC BY pages). The 4 samples are never used for training. See [datasets ticket](https://github.com/martinnbejarano/checkbox-detection/issues/2) and `.agents/research/public-checkbox-datasets.md`. Training code lives outside `src/` (`training/`) so the service never imports it.
+Training data for either path: synthetic pages rendered from the official blank 1004 / 1004MC / 1004C PDFs (every checkbox is a vector square, so labels are exact), plus real scans from Roboflow (861 public-domain housing forms, 2,830 CC BY pages). The 4 samples are never used for training. See [datasets ticket](https://github.com/martinnbejarano/checkbox-detection/issues/2) and `.agents/research/public-checkbox-datasets.md`. Training code lives in `backend/training/`, outside `src/`, so the service never imports it.
 
 ## 7. Evaluation
 
@@ -264,7 +269,7 @@ Training data for either path: synthetic pages rendered from the official blank 
 
 ### Ground truth (the 4 samples)
 
-`tests/data/ground_truth/sample-00N.json`:
+`backend/tests/data/ground_truth/sample-00N.json` (image paths are relative to the repo root):
 
 ```json
 {
@@ -297,7 +302,7 @@ Because Claude also builds the detector, the main evidence of generalization is 
 
 ### External evaluation set (never used for tuning)
 
-About 15–20 pages from the public-domain Roboflow housing-forms dataset (`annotation-mmvj7/new_merge_project`). They are chosen to differ from the samples in layout and box size, and converted to the same ground-truth JSON with class names remapped to `is_checked`. They are stored under `tests/data/external/` with a README giving the source, license and selection rule.
+About 15–20 pages from the public-domain Roboflow housing-forms dataset (`annotation-mmvj7/new_merge_project`). They are chosen to differ from the samples in layout and box size, and converted to the same ground-truth JSON with class names remapped to `is_checked`. They are stored under `backend/tests/data/external/` with a README giving the source, license and selection rule.
 
 - Parameters are tuned **only** on the 4 samples.
 - The README reports both tables: "samples (tuned)" and "external (unseen)".
@@ -348,14 +353,15 @@ About 15–20 pages from the public-domain Roboflow housing-forms dataset (`anno
 | `pdf_dpi` | 300 |
 | `cv_threads` | 1 |
 | `log_level` | `"INFO"` |
+| `static_dir` | unset (no frontend mount); `/app/static` in the Docker image |
 
 Detector tuning parameters are **not** settings. They live in code next to their explanation (section 6).
 
 ## 11. Tooling and code conventions
 
 - **Python 3.13 and uv** (`uv.lock` committed). Runtime dependencies: `fastapi`, `uvicorn`, `pydantic-settings`, `python-multipart`, `opencv-python-headless`, `numpy`, `pillow`, `pypdfium2`. Dev dependencies: `pytest`, `httpx`, `ruff`, `mypy`.
-- **ruff** for linting (rule sets E, F, I, B, UP, SIM, RUF) and formatting. **mypy --strict** on `src/`.
-- **Make targets:** `install`, `lint`, `typecheck`, `test`, `eval`, `run`, `docker-build`, `docker-run`, `frontend-dev`, `frontend-build`. `make check` runs lint, typecheck and test.
+- **ruff** for linting (rule sets E, F, I, B, UP, SIM, RUF) and formatting. **mypy --strict** on `backend/src/`.
+- **Make targets:** one root `Makefile`, which is the only entry point. Backend targets run `uv --directory backend …`, and frontend targets run `npm --prefix frontend …`. The targets are `install`, `lint`, `typecheck`, `test`, `eval`, `run`, `docker-build`, `docker-run`, `frontend-dev` and `frontend-build`. `make check` runs lint, typecheck and test for the backend, plus the frontend build (`tsc` and ESLint) once `frontend/` exists.
 - **Conventions:**
   - Functions are small and named for what they return (`find_candidates`, `fill_ratio`).
   - Full type hints everywhere.
@@ -369,15 +375,15 @@ Detector tuning parameters are **not** settings. They live in code next to their
 
 ([deployment ticket](https://github.com/martinnbejarano/checkbox-detection/issues/9))
 
-- **Dockerfile:** multi-stage, following uv's official recipe.
-  - Frontend stage: `node:22-slim`, which runs `npm ci && npm run build` in `frontend/` and produces `frontend/dist`.
+- **Dockerfile:** `backend/Dockerfile`, multi-stage, following uv's official recipe. It is built from the repo root, `docker build -f backend/Dockerfile .`, because the image also contains the built frontend.
+  - Frontend stage: `node:22-slim`, which runs `npm ci && npm run build` in `frontend/` and produces `frontend/dist`, which is copied to `/app/static`.
   - Builder: `python:3.13-slim` plus a pinned `ghcr.io/astral-sh/uv`, running `uv sync --locked --no-dev`.
-  - Runtime: `python:3.13-slim` with only `.venv`, `src` and the built `frontend/dist`. It runs as a non-root user with an exec-form `CMD ["uvicorn", "checkbox_detection.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
+  - Runtime: `python:3.13-slim` with only `backend/.venv`, `backend/src` and `/app/static`, plus `CHECKBOX_STATIC_DIR=/app/static`. It runs as a non-root user with an exec-form `CMD ["uvicorn", "checkbox_detection.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
   - `HEALTHCHECK` via python/urllib on `/health`.
-  - `.dockerignore` excludes `.agents/`, `samples/`, `tests/`, `.git`, `.venv` and `frontend/node_modules`.
+  - `backend/Dockerfile.dockerignore` excludes `.agents/`, `samples/`, `backend/tests/`, `.git`, `backend/.venv` and `frontend/node_modules`.
   - No apt packages are needed: OpenCV is the headless wheel, and pypdfium2 ships its own binary.
 - **Local (primary path):** `make docker-build && make docker-run`, or `make install && make run` without Docker.
-- **Railway (demo URL):** the same image on 1 vCPU / 1–2 GB, with `PORT` taken from the environment. The README states the URL, the limits, and that it is a demo instance. `TODO(prod)`: auth and rate limiting in front of the public URL.
+- **Railway (demo URL):** the same image on 1 vCPU / 1–2 GB, built using the root `railway.toml` (`dockerfilePath = "backend/Dockerfile"`), with `PORT` taken from the environment. The README states the URL, the limits, and that it is a demo instance. `TODO(prod)`: auth and rate limiting in front of the public URL.
 
 ## 13. Demo frontend (`frontend/`)
 
@@ -399,10 +405,10 @@ A very small page for trying the API by hand. It is a testing aid, not a product
   - `frontend/src/App.tsx` holds the screen and its state: `file`, `status`, `result`, `error`.
   - `frontend/src/DropZone.tsx` handles file selection.
   - `frontend/src/BoxOverlay.tsx` draws the boxes.
-  - `frontend/src/api.ts` has one function, `detect(file): Promise<DetectResponse>`, plus the response types. The types are written by hand to match `api/schemas.py`.
+  - `frontend/src/api.ts` has one function, `detect(file): Promise<DetectResponse>`, plus the response types. The types are written by hand to match the backend's `api/schemas.py`.
 - **How it reaches the API:**
   - In development, `npm run dev` runs on Vite's port, and `vite.config.ts` proxies `/detect` to `http://localhost:8000`. No CORS setup is needed.
-  - In Docker and on Railway, FastAPI serves the built `frontend/dist` with `StaticFiles` at `/`, mounted **after** the API routes so `/detect` and `/health` take priority. It is one container and one origin, so again no CORS. If `frontend/dist` does not exist (backend-only run), the mount is skipped.
+  - In Docker and on Railway, FastAPI serves the built frontend with `StaticFiles` at `/`, from the directory in the `static_dir` setting. The mount is added **after** the API routes, so `/detect` and `/health` take priority. It is one container and one origin, so again no CORS. When `static_dir` is unset (local backend-only runs), there is no mount. The backend never refers to `frontend/` by path.
 - **Quality bar:** the `react-ts` template's ESLint config passes and `tsc` passes (`npm run build` runs both). No frontend unit tests. One manual check is listed in the README.
 - **Make targets:** `make frontend-dev` and `make frontend-build`.
 
@@ -429,7 +435,7 @@ Sections:
 3. approval before the Railway deploy (the user has an account; the deploy uses the Railway CLI).
 
 
-1. Scaffold: `pyproject.toml`, Makefile, `config.py`, `main.py`, and `/health` with a stub detector. Get `make check` green.
+1. Scaffold: `backend/` (`pyproject.toml`, `config.py`, `main.py`, and `/health` with a stub detector) plus the root Makefile. Get `make check` green.
 2. `imaging/` with its tests (images first, then PDF).
 3. `detection/geometry.py` and the synthetic-image tests.
 4. OpenCV detector, step by step. Use `draw_boxes.py` on each sample after each step.
