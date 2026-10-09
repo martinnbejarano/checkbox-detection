@@ -41,7 +41,7 @@ What makes the work good, in priority order:
 
 ### `GET /health`
 
-Returns `200 {"status": "ok"}` after startup has finished (detector loaded and warmed up). The Docker `HEALTHCHECK` uses it.
+Returns `200 {"status": "ok"}` after startup has finished (detector loaded). The Docker `HEALTHCHECK` uses it.
 
 ### Errors
 
@@ -123,7 +123,7 @@ checkbox-detection/
     ├── Dockerfile            # multi-stage; builds frontend too, so build context is the repo root
     ├── Dockerfile.dockerignore  # BuildKit picks this up for backend/Dockerfile
     ├── src/checkbox_detection/
-    │   ├── main.py           # create_app(): settings, logging, lifespan (load + warm up detector), routes, error handlers, optional static mount
+    │   ├── main.py           # create_app(): settings, logging, lifespan (load detector), routes, error handlers, optional static mount
     │   ├── config.py         # Settings (pydantic-settings, prefix CHECKBOX_)
     │   ├── logging.py        # JSON log formatter + request-id/timing middleware
     │   ├── api/
@@ -335,7 +335,7 @@ About 15–20 pages from the public-domain Roboflow housing-forms dataset (`anno
 ## 9. Runtime and performance
 
 - Endpoint declared with plain `def`. FastAPI runs it in its threadpool. OpenCV releases the GIL during heavy calls. pdfium calls are serialized by the lock.
-- The detector is built once in `lifespan`, warmed up with one blank page, stored on `app.state`, and injected through a `get_detector` dependency.
+- The detector is built once in `lifespan`, stored on `app.state`, and injected through a `get_detector` dependency.
 - `cv2.setNumThreads(settings.cv_threads)` is set at startup (default 1 per worker), to avoid CPU oversubscription when there are several workers. Throughput is scaled with uvicorn workers or replicas, never with a process pool inside the app.
 - Logged per request (JSON lines): request id, status, total ms, and also `pages`, `decode_ms`, `detect_ms` and `n_boxes`. The response carries an `X-Request-ID` header.
 - Target: under 500 ms per 300 DPI page on 1 vCPU for the OpenCV detector. To be checked by evaluation; this is not a promise.
@@ -359,7 +359,7 @@ Detector tuning parameters are **not** settings. They live in code next to their
 
 ## 11. Tooling and code conventions
 
-- **Python 3.13 and uv** (`uv.lock` committed). Runtime dependencies: `fastapi`, `uvicorn`, `pydantic-settings`, `python-multipart`, `opencv-python-headless`, `numpy`, `pillow`, `pypdfium2`. Dev dependencies: `pytest`, `httpx`, `ruff`, `mypy`.
+- **Python 3.13 and uv** (`uv.lock` committed). Runtime dependencies: `fastapi`, `uvicorn`, `pydantic-settings`, `python-multipart`, `opencv-python-headless`, `numpy`, `pillow`, `pypdfium2`. Dev dependencies: `pytest`, `httpx2` (Starlette's TestClient deprecates `httpx`), `ruff`, `mypy`.
 - **ruff** for linting (rule sets E, F, I, B, UP, SIM, RUF) and formatting. **mypy --strict** on `backend/src/`.
 - **Make targets:** one root `Makefile`, which is the only entry point. Backend targets run `uv --directory backend …`, and frontend targets run `npm --prefix frontend …`. The targets are `install`, `lint`, `typecheck`, `test`, `eval`, `run`, `docker-build`, `docker-run`, `frontend-dev` and `frontend-build`. `make check` runs lint, typecheck and test for the backend, plus the frontend build (`tsc` and ESLint) once `frontend/` exists.
 - **Conventions:**
