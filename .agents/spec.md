@@ -2,7 +2,7 @@
 
 Status: ready to implement · 2026-10-08
 Source of decisions: [Wayfinder map](https://github.com/martinnbejarano/checkbox-detection/issues/1). Each section links the ticket that holds the reasoning.
-Background research: `docs/research/` (classical CV and services, deep learning and data, API architecture, PDF rasterization, public datasets).
+Background research: `.agents/research/` (classical CV and services, deep learning and data, API architecture, PDF rasterization, public datasets).
 
 ---
 
@@ -115,9 +115,9 @@ checkbox-detection/
 ├── Dockerfile
 ├── .dockerignore
 ├── README.md                 # the writeup: run, approach, results table, tradeoffs, limitations
-├── docs/
+├── .agents/                  # agent working material, not user docs: this spec + research notes behind each decision
 │   ├── spec.md               # this file
-│   └── research/             # research notes behind each decision
+│   └── research/
 ├── samples/                  # the 4 challenge images (sample-000 … sample-003.png)
 ├── frontend/                 # demo page: React + Vite + TS (section 13); built into frontend/dist
 ├── src/checkbox_detection/
@@ -256,7 +256,7 @@ Every threshold lives in one frozen `OpenCVParams` dataclass with a comment per 
 | State accuracy is the main error (watermark, ✓, faint marks) | Replace `classify()` with a small ONNX CNN (`not_checkbox` / `unchecked` / `checked`) on 32×32 crops. Run it with `onnxruntime`. The API does not need PyTorch. | New `detection/hybrid/`. Reuses `opencv/candidates.py`. Registered as `"hybrid"`. |
 | Detection recall is the main error (boxes fused with lines, hand-drawn strokes) | Fine-tune an Apache-2.0 detector (RF-DETR Nano/Small; YOLO26 only if AGPL is acceptable). Export to ONNX. Run on 1024 px tiles with global NMS. | New `detection/learned/`. Registered as `"learned"`. |
 
-Training data for either path: synthetic pages rendered from the official blank 1004 / 1004MC / 1004C PDFs (every checkbox is a vector square, so labels are exact), plus real scans from Roboflow (861 public-domain housing forms, 2,830 CC BY pages). The 4 samples are never used for training. See [datasets ticket](https://github.com/martinnbejarano/checkbox-detection/issues/2) and `docs/research/public-checkbox-datasets.md`. Training code lives outside `src/` (`training/`) so the service never imports it.
+Training data for either path: synthetic pages rendered from the official blank 1004 / 1004MC / 1004C PDFs (every checkbox is a vector square, so labels are exact), plus real scans from Roboflow (861 public-domain housing forms, 2,830 CC BY pages). The 4 samples are never used for training. See [datasets ticket](https://github.com/martinnbejarano/checkbox-detection/issues/2) and `.agents/research/public-checkbox-datasets.md`. Training code lives outside `src/` (`training/`) so the service never imports it.
 
 ## 7. Evaluation
 
@@ -374,6 +374,7 @@ Detector tuning parameters are **not** settings. They live in code next to their
   - Builder: `python:3.13-slim` plus a pinned `ghcr.io/astral-sh/uv`, running `uv sync --locked --no-dev`.
   - Runtime: `python:3.13-slim` with only `.venv`, `src` and the built `frontend/dist`. It runs as a non-root user with an exec-form `CMD ["uvicorn", "checkbox_detection.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
   - `HEALTHCHECK` via python/urllib on `/health`.
+  - `.dockerignore` excludes `.agents/`, `samples/`, `tests/`, `.git`, `.venv` and `frontend/node_modules`.
   - No apt packages are needed: OpenCV is the headless wheel, and pypdfium2 ships its own binary.
 - **Local (primary path):** `make docker-build && make docker-run`, or `make install && make run` without Docker.
 - **Railway (demo URL):** the same image on 1 vCPU / 1–2 GB, with `PORT` taken from the environment. The README states the URL, the limits, and that it is a demo instance. `TODO(prod)`: auth and rate limiting in front of the public URL.
