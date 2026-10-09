@@ -70,7 +70,7 @@ HTTP request
 api/routes.py ── reads bytes, enforces body limit
    │
    ▼
-imaging/  ───── bytes → list[Page]      (sniff format, decode or rasterize, validate, EXIF, grayscale/RGB)
+imaging/  ───── bytes → list[Page]      (sniff format, decode or rasterize, validate, EXIF, keep native gray/color)
    │
    ▼
 detection/ ──── Detector.detect(page) → list[Box]   (pure NumPy/OpenCV; no FastAPI, no I/O)
@@ -88,7 +88,7 @@ class Detector(Protocol):
     def detect(self, image: np.ndarray) -> list[Box]: ...
 ```
 
-- Input: one page as an RGB `uint8` array (H×W×3). Each detector decides how to preprocess it. The OpenCV detector needs color to remove the red watermark and the blue cell fill.
+- Input: one page as a `uint8` array, either **grayscale (H×W)** or **RGB (H×W×3)**, whichever the source had. Each detector decides how to preprocess it. The OpenCV detector uses color, when present, to remove the red watermark and the blue cell fill. On grayscale input it skips that step.
 - Output: boxes in that page's pixel coordinates. The API adds `page`.
 - Implementation chosen at startup by `CHECKBOX_DETECTOR` (default `opencv`). A plain `dict` maps names to constructors in `detection/__init__.py`. There is no plugin registry.
 
@@ -131,7 +131,7 @@ checkbox-detection/
 │   ├── imaging/
 │   │   ├── __init__.py       # load_pages(data: bytes, settings) -> list[Page]
 │   │   ├── errors.py         # UnsupportedFormat, InputTooLarge, CorruptInput (no HTTP knowledge)
-│   │   ├── images.py         # Pillow decode: format allow-list, pixel cap, EXIF transpose, to RGB
+│   │   ├── images.py         # Pillow decode: format allow-list, pixel cap, EXIF transpose, keep L or RGB
 │   │   └── pdf.py            # pypdfium2 rasterization under a global lock
 │   └── detection/
 │       ├── __init__.py       # Detector Protocol, DETECTORS = {"opencv": OpenCVDetector}, build_detector()
@@ -169,14 +169,21 @@ Checks run in this order, cheapest first. Each failure raises an `imaging.errors
 3. **Images.**
    - Check `width × height` against `max_image_pixels` before `load()`, and turn `DecompressionBombWarning` into an error.
    - Call `load()`. A failure here means 422.
-   - Apply `ImageOps.exif_transpose`, convert to `RGB`, then `np.asarray`.
+   - Apply `ImageOps.exif_transpose`.
+   - Normalize the mode **without adding channels**:
+     - `L` and `1` become `L`;
+     - `LA`, `I;16` and `I` become `L` (8-bit);
+     - `RGB`, `RGBA`, `P` and `CMYK` become `RGB`, with alpha composited on white.
+   - Then call `np.asarray`.
+   - A grayscale scan is never expanded to RGB. Expanding would triple its memory and add no information.
+   - Color is kept when the source has it, because color is how overlays are told apart from ink. Converting RGB to gray loses that information and cannot be undone.
    - Multi-page TIFF: process frame 0 only. `TODO(prod): multi-page TIFF`.
 4. **PDFs** ([PDF ticket](https://github.com/martinnbejarano/checkbox-detection/issues/3)). Use `pypdfium2`.
    - One module-level `threading.Lock` guards every pdfium call: open, `init_forms()`, `len`, render and close. pdfium is not thread-safe, even across separate documents.
    - Call `init_forms()` right after opening. Without it, checkboxes in fillable PDFs do not render.
    - Reject the file if the page count is above `max_pdf_pages` (413).
    - Before rendering a page, check its size in points × (300/72)² against `max_image_pixels` (413).
-   - Render each page at `pdf_dpi` (default **300**) to RGB, release the lock, and return it.
+   - Render each page at `pdf_dpi` (default **300**) to RGB, release the lock, and return it. The render is always RGB, because PDFs can carry colored watermarks and stamps.
    - Encrypted PDFs (`FPDF_ERR_PASSWORD`) and corrupt PDFs (`PdfiumError`) mean 422.
    - Close the document explicitly inside the lock. Do not rely on finalizers.
 
@@ -219,7 +226,10 @@ How this is verified:
 
 Each step is one small function, so a reader can follow the order in `detector.py`.
 
-1. **`remove_color_overlays(rgb) -> gray`** (`preprocess.py`). Convert to HSV. Pixels with high saturation (red watermark, blue fill) become white, then convert to grayscale. Black ink has low saturation and survives.
+1. **`to_clean_gray(image) -> gray`** (`preprocess.py`).
+   - If the image is RGB: convert to HSV, turn pixels with high saturation (red watermark, blue fill) white, then convert to grayscale. Black ink has low saturation and survives.
+   - If the image is already grayscale: return it unchanged.
+   - Cost: about 3× the memory of a gray page while this step runs (≈32 MB vs ≈11 MB at 2550×4200) and a few milliseconds of time. This is small next to the false positives it prevents.
 2. **`binarize(gray) -> binary`**. Adaptive Gaussian threshold, inverted so ink is 255. The block size scales with page width.
 3. **`find_candidates(binary) -> list[Rect]`** (`candidates.py`):
    - Remove long horizontal and vertical lines (morphological open with kernels much longer than a checkbox side), so boxes that touch table rules become separate. Keep the binary image from before this step for step 5.
@@ -312,8 +322,8 @@ About 15–20 pages from the public-domain Roboflow housing-forms dataset (`anno
 | File | What it proves |
 |---|---|
 | `test_geometry.py` | `iou`, `nms` and ordering on hand-made rectangles. |
-| `test_opencv_detector.py` | On synthetic pages drawn with `cv2.rectangle`/`cv2.line`: empty, X, ✓ and filled boxes; boxes touching a table line; a red overlay; a page with only text, which gives `[]`. Box sides are parametrized from 10 px to 100 px, and page sizes from 1000 px to 5000 px wide. Asserts the count, bbox within ±3 px (or ±5% of the side), and `is_checked`. |
-| `test_imaging.py` | PNG/JPEG/TIFF/WEBP decode; EXIF-rotated JPEG gives upright coordinates; truncated file gives `CorruptInput`; non-image bytes give `UnsupportedFormat`; pixel cap; a 2-page PDF made in-test gives 2 pages at 300 DPI; page cap; encrypted PDF. |
+| `test_opencv_detector.py` | On synthetic pages drawn with `cv2.rectangle`/`cv2.line`, given both as grayscale and as RGB (same boxes expected): empty, X, ✓ and filled boxes; boxes touching a table line; a red overlay; a page with only text, which gives `[]`. Box sides are parametrized from 10 px to 100 px, and page sizes from 1000 px to 5000 px wide. Asserts the count, bbox within ±3 px (or ±5% of the side), and `is_checked`. |
+| `test_imaging.py` | PNG/JPEG/TIFF/WEBP decode; a grayscale PNG stays 2-D and an RGBA PNG becomes 3-channel on white; EXIF-rotated JPEG gives upright coordinates; truncated file gives `CorruptInput`; non-image bytes give `UnsupportedFormat`; pixel cap; a 2-page PDF made in-test gives 2 pages at 300 DPI; page cap; encrypted PDF. |
 | `test_api.py` | `with TestClient(app)` so lifespan runs. Checks 200 schema and `page`, 413, 415, 422 problem+json, missing field, and `/health`. Uses `dependency_overrides` with a fake detector so HTTP behavior is tested on its own. |
 | `test_golden.py` | Each real sample against its ground truth. Asserts end-to-end accuracy ≥ a floor recorded after tuning (for example 0.9), so a regression fails the test while small tweaks do not. |
 
