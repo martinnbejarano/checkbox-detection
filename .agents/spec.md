@@ -295,8 +295,8 @@ Allowed tags: `watermark`, `color_fill`, `handwriting`, `checkmark`, `partial_fi
 **Labeling procedure.** Claude does the labeling.
 
 1. **Label from the image, not from the detector.** Claude labels each sample by looking at zoomed tiles of the page, before running `prelabel.py`. This keeps the ground truth independent of the detector's parameters.
-2. **Reconcile.** Run `prelabel.py`, then diff it against the labels. Look again at every disagreement in the image and fix the label only when the image shows the label was wrong. Never change a label to match the detector.
-3. **Spot-check (human).** The user reviews `draw_boxes.py` overlays of the ground truth for all 4 samples, about 15 minutes, and flags errors. The ground truth is committed only after this review.
+2. **Spot-check (human).** The user reviews `draw_boxes.py` overlays of the ground truth for all 4 samples (about 15 minutes) and flags errors. The labels are committed only after this review.
+3. **Reconcile, later.** Once the detector and `prelabel.py` exist, list every disagreement between them and the labels. A label changes only when the image shows it was wrong, never to match the detector. Each change is listed in that PR for the user.
 
 Because Claude also builds the detector, the main evidence of generalization is the **external set** below. Its labels were made by third parties.
 
