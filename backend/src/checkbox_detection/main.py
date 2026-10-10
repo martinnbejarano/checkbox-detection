@@ -8,7 +8,7 @@ from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from checkbox_detection.api.errors import add_error_handlers, problem
 from checkbox_detection.api.routes import router
 from checkbox_detection.config import Settings
-from checkbox_detection.detection import build_detector
+from checkbox_detection.detection import build_pipeline
 from checkbox_detection.logging import configure_logging, log_requests
 
 
@@ -19,7 +19,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         cv2.setNumThreads(settings.cv_threads)
-        app.state.detector = build_detector(settings.detector)
+        app.state.pipeline = build_pipeline(
+            settings.locator, settings.classifier, settings.models_dir, settings.onnx_threads
+        )
         yield
 
     async def reject_declared_oversize(

@@ -7,9 +7,8 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from checkbox_detection.api.routes import get_detector
+from checkbox_detection.api.routes import get_pipeline
 from checkbox_detection.config import Settings
-from checkbox_detection.detection.types import Box
 from checkbox_detection.main import create_app
 
 
@@ -35,24 +34,11 @@ def test_detect_returns_empty_and_checked_box() -> None:
 
     assert response.status_code == 200
     boxes = response.json()["boxes"]
+    assert [b.keys() for b in boxes] == [{"bbox", "is_checked", "page"}] * 2
     assert [b["is_checked"] for b in boxes] == [False, True]
     assert [b["page"] for b in boxes] == [0, 0]
     for box, expected in zip(boxes, ([200, 400, 250, 450], [600, 400, 650, 450]), strict=True):
         assert np.allclose(box["bbox"], expected, atol=3)
-
-
-def test_detect_returns_contract_shape_from_any_detector() -> None:
-    class FakeDetector:
-        def detect(self, image: np.ndarray) -> list[Box]:
-            return [Box(1, 2, 3, 4, is_checked=True, score=0.9)]
-
-    app = create_app(Settings())
-    app.dependency_overrides[get_detector] = FakeDetector
-    with TestClient(app) as client:
-        response = client.post("/detect", files={"file": ("page.png", two_box_page())})
-
-    assert response.status_code == 200
-    assert response.json() == {"boxes": [{"bbox": [1, 2, 3, 4], "is_checked": True, "page": 0}]}
 
 
 def test_health_is_ok_after_startup() -> None:
@@ -63,8 +49,19 @@ def test_health_is_ok_after_startup() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_unknown_detector_fails_at_startup() -> None:
-    with pytest.raises(ValueError, match="nope"), TestClient(create_app(Settings(detector="nope"))):
+@pytest.mark.parametrize(
+    ("settings", "message"),
+    [
+        (Settings(locator="nope"), r"Unknown locator 'nope'; choose one of \['opencv'\]"),
+        (
+            Settings(classifier="nope"),
+            r"Unknown classifier 'nope'; choose one of \['fill_ratio'\]",
+        ),
+    ],
+    ids=["locator", "classifier"],
+)
+def test_unknown_stage_name_fails_at_startup(settings: Settings, message: str) -> None:
+    with pytest.raises(ValueError, match=message), TestClient(create_app(settings)):
         pass
 
 
@@ -130,12 +127,12 @@ def test_missing_file_field_is_422() -> None:
 
 
 def test_unexpected_failure_is_500_without_stack_trace() -> None:
-    class BrokenDetector:
-        def detect(self, image: np.ndarray) -> list[Box]:
+    class BrokenPipeline:
+        def run(self, image: np.ndarray) -> list[object]:
             raise RuntimeError("secret internals")
 
     app = create_app(Settings())
-    app.dependency_overrides[get_detector] = BrokenDetector
+    app.dependency_overrides[get_pipeline] = BrokenPipeline
     with TestClient(app, raise_server_exceptions=False) as client:
         response = client.post("/detect", files={"file": ("page.png", two_box_page())})
 

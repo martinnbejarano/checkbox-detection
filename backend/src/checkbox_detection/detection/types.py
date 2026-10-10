@@ -1,13 +1,24 @@
-"""Domain types shared by every detector."""
+"""Domain types passed between the pipeline stages and to `api`. Imports nothing else."""
 
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
-class Box:
+class Rect:
+    """Output of stage 1 (locate), input of stages 2 (classify) and 3 (label)."""
+
     x1: int
     y1: int
     x2: int
     y2: int
+    score: float
+
+
+@dataclass(frozen=True, slots=True)
+class Box:
+    """One checkbox as the API serializes it."""
+
+    rect: Rect
     is_checked: bool
-    score: float  # detector confidence or fill ratio; internal, not in the response
+    checked_score: float  # interior ink ratio for fill_ratio; internal, not in the response
+    label: str | None = None
