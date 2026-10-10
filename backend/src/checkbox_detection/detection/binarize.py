@@ -1,4 +1,4 @@
-"""Gray conversion, binarization and ink measures shared by the OpenCV locator and fill_ratio.
+"""Gray conversion, binarization and line removal shared by the OpenCV locator and fill_ratio.
 
 Lives outside `locate/` and `classify/` so neither stage imports the other.
 Must not import anything outside `detection`.
@@ -16,10 +16,26 @@ class BinarizeParams:
     block_frac: float = 0.02
     # A pixel is ink when it is this much darker than its neighbourhood mean.
     threshold_offset: int = 10
+    # HSV saturation (0-255) above which a pixel is colour overlay (red watermark, blue fill).
+    # Black and gray ink stay well below it.
+    min_overlay_saturation: int = 70
+    # Only pixels at least this bright (HSV value, 0-255) count as overlay: dark pixels have
+    # noisy saturation and are ink.
+    min_overlay_value: int = 100
 
 
-def to_clean_gray(image: np.ndarray) -> np.ndarray:
-    return image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+def to_clean_gray(image: np.ndarray, params: BinarizeParams | None = None) -> np.ndarray:
+    """Grayscale with colour overlays turned to paper. A gray image is returned unchanged."""
+    if image.ndim == 2:
+        return image
+    params = params or BinarizeParams()
+    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    overlay = (hsv[..., 1] > params.min_overlay_saturation) & (
+        hsv[..., 2] >= params.min_overlay_value
+    )
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    gray[overlay] = 255
+    return gray
 
 
 def binarize(gray: np.ndarray, params: BinarizeParams | None = None) -> np.ndarray:
@@ -36,8 +52,16 @@ def binarize(gray: np.ndarray, params: BinarizeParams | None = None) -> np.ndarr
     )
 
 
-def interior_ink(binary: np.ndarray, x: int, y: int, w: int, h: int, margin_frac: float) -> float:
-    """Share of ink pixels inside the box, minus a `margin_frac` border."""
-    mx, my = int(w * margin_frac), int(h * margin_frac)
-    interior = binary[y + my : y + h - my, x + mx : x + w - mx]
-    return float(np.mean(interior > 0)) if interior.size else 0.0
+def remove_lines(binary: np.ndarray, min_length: int) -> np.ndarray:
+    """Erase horizontal and vertical runs of ink at least `min_length` px long (table rules)."""
+    horizontal = cv2.morphologyEx(binary, cv2.MORPH_OPEN, np.ones((1, min_length), np.uint8))
+    vertical = cv2.morphologyEx(binary, cv2.MORPH_OPEN, np.ones((min_length, 1), np.uint8))
+    return cv2.bitwise_and(binary, cv2.bitwise_not(cv2.bitwise_or(horizontal, vertical)))
+
+
+def border_thickness(box: np.ndarray) -> int:
+    """Median ink run from each edge inward along the middle row and column."""
+    h, w = box.shape
+    lines = [box[h // 2], box[h // 2, ::-1], box[:, w // 2], box[::-1, w // 2]]
+    runs = [int(np.argmin(line > 0)) if not line.all() else len(line) for line in lines]
+    return max(1, min(int(np.median(runs)), int(min(h, w)) // 4))

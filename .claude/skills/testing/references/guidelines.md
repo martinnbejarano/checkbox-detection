@@ -28,6 +28,7 @@ Copy these, not whatever test happens to be nearby:
 | Integration through HTTP, real pipeline, synthetic page | `backend/tests/test_api.py::test_detect_returns_empty_and_checked_box` |
 | Integration, forced failure (the one allowed fake) | `backend/tests/test_api.py::test_unexpected_failure_is_500_without_stack_trace` |
 | Pure function, parametrized over input classes | `backend/tests/test_imaging.py::test_decodes_allowed_formats_keeping_color` |
+| Unit, one stage with real dependencies, scale grid | `backend/tests/test_locate.py::test_finds_every_mark_class_at_any_scale` |
 
 Update this table when a better exemplar lands (e.g. the first stage-level test and the first golden test).
 
