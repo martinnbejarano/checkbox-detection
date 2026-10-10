@@ -1,9 +1,13 @@
-"""Turns uploaded bytes into decoded pages (uint8 gray HxW or RGB HxWx3)."""
+"""Turns uploaded bytes into validated, decoded pages (uint8 gray HxW or RGB HxWx3).
+
+Raises `imaging.errors` exceptions. Must not import FastAPI, `api` or `detection`.
+"""
 
 from dataclasses import dataclass
 
 import numpy as np
 
+from checkbox_detection.config import Settings
 from checkbox_detection.imaging.images import decode_image
 
 
@@ -13,7 +17,5 @@ class Page:
     image: np.ndarray
 
 
-def load_pages(data: bytes) -> list[Page]:
-    # Format allow-list, size caps, typed errors, 16-bit rescaling and alpha-on-white
-    # compositing arrive with upload validation (#16).
-    return [Page(0, decode_image(data))]
+def load_pages(data: bytes, settings: Settings) -> list[Page]:
+    return [Page(0, decode_image(data, settings.max_image_pixels))]

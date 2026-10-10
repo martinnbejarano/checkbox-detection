@@ -1,4 +1,8 @@
+import json
+from collections.abc import Iterator
+
 import cv2
+import httpx2
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
@@ -62,3 +66,93 @@ def test_health_is_ok_after_startup() -> None:
 def test_unknown_detector_fails_at_startup() -> None:
     with pytest.raises(ValueError, match="nope"), TestClient(create_app(Settings(detector="nope"))):
         pass
+
+
+def assert_problem(response: httpx2.Response, status: int) -> None:
+    assert response.status_code == status
+    assert response.headers["content-type"] == "application/problem+json"
+    body = response.json()
+    assert body.keys() == {"type", "title", "status", "detail"}
+    assert body["status"] == status
+    assert "Traceback" not in response.text
+
+
+def test_declared_oversized_body_is_413() -> None:
+    with TestClient(create_app(Settings(max_upload_bytes=1000))) as client:
+        response = client.post("/detect", files={"file": ("page.png", b"x" * 2000)})
+
+    assert_problem(response, 413)
+
+
+def test_streamed_oversized_body_is_413() -> None:
+    def chunks() -> Iterator[bytes]:
+        yield b'--b\r\nContent-Disposition: form-data; name="file"; filename="a"\r\n\r\n'
+        yield b"x" * 2000
+        yield b"\r\n--b--\r\n"
+
+    with TestClient(create_app(Settings(max_upload_bytes=1000))) as client:
+        response = client.post(
+            "/detect",
+            content=chunks(),
+            headers={"content-type": "multipart/form-data; boundary=b"},
+        )
+
+    assert_problem(response, 413)
+
+
+def test_unsupported_bytes_are_415() -> None:
+    with TestClient(create_app(Settings())) as client:
+        response = client.post("/detect", files={"file": ("page.png", b"not an image")})
+
+    assert_problem(response, 415)
+
+
+def test_truncated_image_is_422() -> None:
+    data = two_box_page()
+    with TestClient(create_app(Settings())) as client:
+        response = client.post("/detect", files={"file": ("page.png", data[: len(data) // 2])})
+
+    assert_problem(response, 422)
+
+
+def test_pixel_cap_exceeded_is_413() -> None:
+    with TestClient(create_app(Settings(max_image_pixels=1000))) as client:
+        response = client.post("/detect", files={"file": ("page.png", two_box_page())})
+
+    assert_problem(response, 413)
+
+
+def test_missing_file_field_is_422() -> None:
+    with TestClient(create_app(Settings())) as client:
+        response = client.post("/detect", files={"other": ("page.png", b"x")})
+
+    assert_problem(response, 422)
+
+
+def test_unexpected_failure_is_500_without_stack_trace() -> None:
+    class BrokenDetector:
+        def detect(self, image: np.ndarray) -> list[Box]:
+            raise RuntimeError("secret internals")
+
+    app = create_app(Settings())
+    app.dependency_overrides[get_detector] = BrokenDetector
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post("/detect", files={"file": ("page.png", two_box_page())})
+
+    assert_problem(response, 500)
+    assert "secret internals" not in response.text
+    assert response.headers["x-request-id"]
+
+
+def test_each_request_logs_one_json_line_with_timings(capsys: pytest.CaptureFixture[str]) -> None:
+    with TestClient(create_app(Settings())) as client:
+        response = client.post("/detect", files={"file": ("page.png", two_box_page())})
+
+    lines = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    [entry] = [line for line in lines if line.get("message") == "request"]
+    assert entry["request_id"] == response.headers["x-request-id"]
+    assert entry["status"] == 200
+    assert entry["pages"] == 1
+    assert entry["n_boxes"] == 2
+    for key in ("total_ms", "decode_ms", "detect_ms"):
+        assert entry[key] >= 0
