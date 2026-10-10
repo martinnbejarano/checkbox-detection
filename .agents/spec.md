@@ -284,9 +284,9 @@ Rules for the OpenCV locator and `fill_ratio`:
    - the adaptive-threshold block;
    - the line-removal kernel length, which is always longer than the largest allowed box side, so box edges survive;
    - the NMS distances.
-3. **The page sets its own box size.** After shape filtering, compute the median side of the confident candidates. Then accept weaker candidates only if they are within ×0.5–×2 of that median. This uses the fact that a form usually has one or two box sizes. It removes square glyphs on forms with large boxes, without a hard-coded size. If there are fewer than 5 confident candidates, skip this step.
+3. **The page sets its own box size.** After shape filtering, compute the median side of the confident candidates (4 vertices, rectangularity ≥ 0.86, border ≤ 11% of the side). Then accept weaker candidates only if they are within ×0.75–×1.33 of that median. This uses the fact that a form usually has one or two box sizes. It removes square glyphs, without a hard-coded size: on the samples, real weak boxes sit at 0.97–1.06 of the median and letters at 0.45–0.65. If there are fewer than 5 confident candidates, weak candidates are dropped, so a text-only page returns no boxes.
 4. **Fill classification is relative.** The interior margin is a fraction of the measured side plus the measured border thickness. The ink ratio is a fraction of the interior area. Both work the same at 20 px and at 80 px.
-5. **Very small inputs are upscaled.** If the page's short edge is below about 1000 px (a low-resolution photo or crop), upscale it ×2 before detection, then scale the boxes back to the original coordinates.
+5. **Very small inputs are upscaled.** If the page's short edge is below about 1000 px (a low-resolution photo or crop), upscale it ×2 (nearest neighbour, so thin borders stay thin) before detection, then scale the boxes back to the original coordinates.
 
 Rule for the YOLOX locator: the model sees fixed 640 px inputs, so the page is cut into tiles whose size is a fraction of the page (default ≈ 1280 px on a 2550 px page), not a fixed pixel count. The probe found that recall drops on the large-box sample at one tile size, so tile size is a tuned `YoloxParams` field and is checked by the scale table below.
 
@@ -310,7 +310,7 @@ Each step is one small function, so a reader can follow the order in `OpenCVLoca
      - its side is between `min_side_px` and `max_side_frac` of the page (see "Scale independence");
      - its aspect ratio is between 0.7 and 1.4;
      - `approxPolyDP` gives 4 vertices, or the contour area divided by the bbox area is above 0.8;
-     - it is hollow, meaning the ink ratio of the border ring is much higher than the interior's.
+     - it is hollow, meaning its holes cover at least 25% of its bbox. An X or a fill with a gap still leaves holes; a solid blob does not.
    - Do not require exactly one child contour, because an "X" splits the inner hole.
    - Apply the page-median size check (rule 3 of "Scale independence").
 4. **`nms(rects, iou=0.3)`** (`geometry.py`). Merge duplicates, preferring the outer rectangle.
@@ -330,9 +330,10 @@ Probe on one M4 thread: 220–290 ms per page. Parameters (tile size, overlap, s
 ### Stage 2a: `fill_ratio` classifier (`classify/fill_ratio.py`)
 
 - Binarize the page with `binarize.py` **before** line removal.
-- Per rect: shrink inward by `max(border_thickness + 2px, 15% of side)`, then compute the ink ratio of the interior.
-- Threshold: Otsu over all fill ratios on the page when they split into two groups (the gap between groups is large enough). Otherwise use a fixed `fill_threshold` (default ≈ 0.10, tuned on the samples).
-- Ambiguous ratios (within `±margin` of the threshold) resolve to **`false`**, following the decision to avoid inventing checked boxes.
+- Per rect: shrink inward by `max(border_thickness + 5% of side, 15% of side)`, then compute the ink ratio of the interior.
+- Only ink from strokes that sit mostly inside the box counts (labeling policy, §7). In a crop one side wider than the box, the box edges (straight runs ≥ 80% of the side) are set apart, and each remaining stroke counts only if ≥ 60% of its ink is inside the box. A stray stroke that crosses the box is mostly outside it.
+- Threshold: a fixed `fill_threshold` (0.05). Once stray strokes are dropped, empty boxes on the samples measure about 0 and the faintest mark about 0.11. A per-page split (threshold in the widest gap between the ratios) was tried and dropped: on the cropped sample it split faint X marks from full ones and called the X marks empty.
+- Ambiguous ratios (up to `ambiguous_margin` = 0.02 above the threshold) resolve to **`false`**, following the decision to avoid inventing checked boxes.
 - Parameters in a frozen `FillParams`.
 
 ### Stage 2b: CNN state classifier (`classify/state_cnn.py`)
