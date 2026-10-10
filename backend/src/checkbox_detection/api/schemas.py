@@ -12,7 +12,8 @@ class BoxOut(BaseModel):
 
     @classmethod
     def from_box(cls, box: Box, page: int) -> "BoxOut":
-        return cls(bbox=(box.x1, box.y1, box.x2, box.y2), is_checked=box.is_checked, page=page)
+        r = box.rect
+        return cls(bbox=(r.x1, r.y1, r.x2, r.y2), is_checked=box.is_checked, page=page)
 
 
 class DetectResponse(BaseModel):
