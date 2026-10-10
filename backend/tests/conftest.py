@@ -1,10 +1,13 @@
 """Helpers shared by test files."""
 
+from pathlib import Path
 from typing import Literal
 
 import cv2
 import httpx2
 import numpy as np
+
+MODELS_DIR = Path(__file__).resolve().parents[1] / "models"  # filled by `make models`
 
 
 def assert_problem(response: httpx2.Response, status: int) -> None:

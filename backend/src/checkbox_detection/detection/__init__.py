@@ -20,6 +20,7 @@ from checkbox_detection.detection.geometry import sort_reading_order
 from checkbox_detection.detection.label import RapidOcrLabeler
 from checkbox_detection.detection.locate import Locator
 from checkbox_detection.detection.locate.opencv import OpenCVLocator
+from checkbox_detection.detection.locate.yolox import YoloxLocator
 from checkbox_detection.detection.types import Box
 
 
@@ -40,9 +41,10 @@ class Pipeline:
         return boxes
 
 
-# Each constructor takes (models_dir, onnx_threads); the ONNX stages will use them.
+# Each constructor takes (models_dir, onnx_threads); the ONNX stages use them.
 LOCATORS: dict[str, Callable[[Path, int], Locator]] = {
     "opencv": lambda models_dir, threads: OpenCVLocator(),
+    "yolox": YoloxLocator,
 }
 CLASSIFIERS: dict[str, Callable[[Path, int], StateClassifier]] = {
     "fill_ratio": lambda models_dir, threads: FillRatioClassifier(),
