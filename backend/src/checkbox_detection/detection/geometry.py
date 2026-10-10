@@ -1,5 +1,7 @@
 """Pure box geometry helpers. Must not import anything outside `detection.types`."""
 
+import math
+
 from checkbox_detection.detection.types import Box, Rect
 
 
@@ -34,3 +36,24 @@ def sort_reading_order(boxes: list[Box]) -> list[Box]:
         else:
             rows.append([b])
     return [b for row in rows for b in sorted(row, key=lambda b: b.rect.x1)]
+
+
+def tile_windows(
+    width: int, height: int, tile: int, overlap: int
+) -> list[tuple[int, int, int, int]]:
+    """Windows (x1, y1, x2, y2) of at most `tile` px that cover the page.
+
+    Neighbours overlap by at least `overlap` px, so a box smaller than that is whole in one window.
+    """
+
+    def starts(length: int) -> list[int]:
+        if length <= tile:
+            return [0]
+        n = math.ceil((length - tile) / (tile - overlap)) + 1
+        return [round(i * (length - tile) / (n - 1)) for i in range(n)]
+
+    return [
+        (x, y, min(x + tile, width), min(y + tile, height))
+        for y in starts(height)
+        for x in starts(width)
+    ]
