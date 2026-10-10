@@ -16,6 +16,7 @@ import numpy as np
 
 from checkbox_detection.detection.classify import StateClassifier
 from checkbox_detection.detection.classify.fill_ratio import FillRatioClassifier
+from checkbox_detection.detection.classify.state_cnn import StateCnnClassifier
 from checkbox_detection.detection.geometry import sort_reading_order
 from checkbox_detection.detection.label import RapidOcrLabeler
 from checkbox_detection.detection.locate import Locator
@@ -48,6 +49,7 @@ LOCATORS: dict[str, Callable[[Path, int], Locator]] = {
 }
 CLASSIFIERS: dict[str, Callable[[Path, int], StateClassifier]] = {
     "fill_ratio": lambda models_dir, threads: FillRatioClassifier(),
+    "cnn": StateCnnClassifier,
 }
 
 

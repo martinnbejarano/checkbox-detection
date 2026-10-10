@@ -56,7 +56,7 @@ def test_health_is_ok_after_startup() -> None:
         (Settings(locator="nope"), r"Unknown locator 'nope'; choose one of \['opencv', 'yolox'\]"),
         (
             Settings(classifier="nope"),
-            r"Unknown classifier 'nope'; choose one of \['fill_ratio'\]",
+            r"Unknown classifier 'nope'; choose one of \['cnn', 'fill_ratio'\]",
         ),
     ],
     ids=["locator", "classifier"],
@@ -66,7 +66,9 @@ def test_unknown_stage_name_fails_at_startup(settings: Settings, message: str) -
         pass
 
 
-@pytest.mark.parametrize("settings", [Settings(locator="yolox")], ids=["yolox"])
+@pytest.mark.parametrize(
+    "settings", [Settings(locator="yolox"), Settings(classifier="cnn")], ids=["yolox", "cnn"]
+)
 def test_missing_model_file_fails_at_startup(settings: Settings, tmp_path: Path) -> None:
     settings = settings.model_copy(update={"models_dir": tmp_path})
     with (
