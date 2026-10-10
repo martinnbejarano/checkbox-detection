@@ -2,9 +2,9 @@ import json
 from collections.abc import Iterator
 
 import cv2
-import httpx2
 import numpy as np
 import pytest
+from conftest import assert_problem
 from fastapi.testclient import TestClient
 
 from checkbox_detection.api.routes import get_pipeline
@@ -63,15 +63,6 @@ def test_health_is_ok_after_startup() -> None:
 def test_unknown_stage_name_fails_at_startup(settings: Settings, message: str) -> None:
     with pytest.raises(ValueError, match=message), TestClient(create_app(settings)):
         pass
-
-
-def assert_problem(response: httpx2.Response, status: int) -> None:
-    assert response.status_code == status
-    assert response.headers["content-type"] == "application/problem+json"
-    body = response.json()
-    assert body.keys() == {"type", "title", "status", "detail"}
-    assert body["status"] == status
-    assert "Traceback" not in response.text
 
 
 def test_declared_oversized_body_is_413() -> None:
