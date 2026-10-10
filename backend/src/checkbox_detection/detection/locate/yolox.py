@@ -16,6 +16,7 @@ from checkbox_detection.detection.types import Rect
 
 MODEL_FILE = "form-field-v1-nano.onnx"
 INPUT = 640  # the model's fixed square input
+PAD = 114  # letterbox grey the model was trained with; pixels stay raw 0-255
 CHOICE_BUTTON = 1  # classes: 0 Text, 1 ChoiceButton, 2 Signature
 
 
@@ -63,18 +64,18 @@ class YoloxLocator:
         return [
             r
             for r in nms(rects, self.params.nms_iou)
-            if self.params.min_side_px <= max(r.x2 - r.x1, r.y2 - r.y1) <= max_side
+            if self.params.min_side_px <= min(r.x2 - r.x1, r.y2 - r.y1)
+            and max(r.x2 - r.x1, r.y2 - r.y1) <= max_side
         ]
 
     def _locate_tile(self, rgb: np.ndarray, window: tuple[int, int, int, int]) -> list[Rect]:
         x1, y1, x2, y2 = window
         tile = rgb[y1:y2, x1:x2]
-        # Letterbox: scale the long side to 640, pad right and bottom with grey 114, raw 0-255.
-        r = INPUT / max(tile.shape[:2])
-        resized = cv2.resize(
-            tile, (round(tile.shape[1] * r), round(tile.shape[0] * r)), interpolation=cv2.INTER_AREA
-        )
-        canvas = np.full((INPUT, INPUT, 3), 114, np.uint8)
+        # Letterbox: scale the long side to 640, pad right and bottom.
+        scale = INPUT / max(tile.shape[:2])
+        size = (round(tile.shape[1] * scale), round(tile.shape[0] * scale))
+        resized = cv2.resize(tile, size, interpolation=cv2.INTER_AREA)
+        canvas = np.full((INPUT, INPUT, 3), PAD, np.uint8)
         canvas[: resized.shape[0], : resized.shape[1]] = resized
         x = canvas.astype(np.float32).transpose(2, 0, 1)[None]
 
@@ -84,10 +85,10 @@ class YoloxLocator:
         keep = (scores >= self.params.score_threshold) & (out[:, 5:].argmax(1) == CHOICE_BUTTON)
         return [
             Rect(
-                round(x1 + (cx - w / 2) / r),
-                round(y1 + (cy - h / 2) / r),
-                round(x1 + (cx + w / 2) / r),
-                round(y1 + (cy + h / 2) / r),
+                round(x1 + (cx - w / 2) / scale),
+                round(y1 + (cy - h / 2) / scale),
+                round(x1 + (cx + w / 2) / scale),
+                round(y1 + (cy + h / 2) / scale),
                 float(score),
             )
             for (cx, cy, w, h), score in zip(out[keep, :4], scores[keep], strict=True)

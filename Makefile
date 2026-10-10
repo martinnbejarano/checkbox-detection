@@ -7,7 +7,7 @@ install:
 
 # Each line of backend/models.txt is saved as backend/models/<repo name>.onnx; present files are kept.
 models:
-	@grep -v '^#' backend/models.txt | while read -r repo file sha; do \
+	@grep -Ev '^(#|$$)' backend/models.txt | while read -r repo file sha; do \
 		out=backend/models/$${repo#*/}.onnx; \
 		[ -f $$out ] || { curl -fsSL --create-dirs -o $$out.part \
 			https://huggingface.co/$$repo/resolve/$$sha/$$file && mv $$out.part $$out; } || exit 1; \

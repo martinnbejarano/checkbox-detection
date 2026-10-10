@@ -36,7 +36,7 @@ def assert_boxes(
 @pytest.mark.parametrize(
     ("name", "width", "side"),
     [
-        ("opencv", 800, 12),  # upscaled
+        ("opencv", 800, 12),
         ("opencv", 1000, 10),
         ("opencv", 1000, 50),
         ("opencv", 2500, 20),
@@ -51,7 +51,21 @@ def assert_boxes(
         ("yolox", 5000, 30),
         ("yolox", 5000, 100),
     ],
-    ids=lambda v: str(v),
+    ids=[
+        "opencv-800-12-upscaled",
+        "opencv-1000-10",
+        "opencv-1000-50",
+        "opencv-2500-20",
+        "opencv-2500-100",
+        "opencv-5000-12",
+        "opencv-5000-100",
+        "yolox-1000-8",
+        "yolox-1000-20",
+        "yolox-2500-15",
+        "yolox-2500-45",
+        "yolox-5000-30",
+        "yolox-5000-100",
+    ],
 )
 def test_finds_every_mark_class_at_any_scale(
     name: str, width: int, side: int, to_input: Callable[[np.ndarray], np.ndarray]

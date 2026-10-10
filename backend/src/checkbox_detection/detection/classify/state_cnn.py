@@ -15,6 +15,7 @@ from checkbox_detection.detection.types import Rect
 
 MODEL_FILE = "form-field-v1-state.onnx"
 HEIGHT, WIDTH = 40, 160  # the model's input crop
+MEAN, STD = 0.5, 0.5  # the model's input normalisation, on pixels scaled to 0-1
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,10 +43,10 @@ class StateCnnClassifier:
             return []
         gray = to_clean_gray(image)
         crops = np.stack([self._crop(gray, r) for r in rects])[:, None]
-        x = (crops.astype(np.float32) / 255 - 0.5) / 0.5
+        x = (crops.astype(np.float32) / 255 - MEAN) / STD
         logits = self.session.run(None, {self.session.get_inputs()[0].name: x})[0]
-        e = np.exp(logits - logits.max(1, keepdims=True))
-        filled = e[:, 1] / e.sum(1)
+        exp = np.exp(logits - logits.max(1, keepdims=True))  # softmax over (empty, filled)
+        filled = exp[:, 1] / exp.sum(1)
         threshold = self.params.threshold + self.params.ambiguous_margin
         return [(bool(p > threshold), float(p)) for p in filled]
 
@@ -53,8 +54,8 @@ class StateCnnClassifier:
         """The padded box, letterboxed into 40x160 on white, centred, aspect kept."""
         pad = round(self.params.pad_frac * min(rect.x2 - rect.x1, rect.y2 - rect.y1))
         crop = gray[max(0, rect.y1 - pad) : rect.y2 + pad, max(0, rect.x1 - pad) : rect.x2 + pad]
-        s = min(WIDTH / crop.shape[1], HEIGHT / crop.shape[0])
-        w, h = max(1, round(crop.shape[1] * s)), max(1, round(crop.shape[0] * s))
+        scale = min(WIDTH / crop.shape[1], HEIGHT / crop.shape[0])
+        w, h = max(1, round(crop.shape[1] * scale)), max(1, round(crop.shape[0] * scale))
         out = np.full((HEIGHT, WIDTH), 255, np.uint8)
         x0, y0 = (WIDTH - w) // 2, (HEIGHT - h) // 2
         out[y0 : y0 + h, x0 : x0 + w] = cv2.resize(crop, (w, h), interpolation=cv2.INTER_LINEAR)
