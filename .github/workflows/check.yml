@@ -1,0 +1,23 @@
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - uses: actions/cache@v4
+        with:
+          path: backend/models
+          key: models-${{ hashFiles('backend/models.txt') }}
+      - run: make install
+      - run: make check
