@@ -1,0 +1,766 @@
+:root {
+  --bg: #fbfbfc;
+  --surface: #ffffff;
+  --canvas: #f1f1f4;
+  --line: #e4e4e9;
+  --line-strong: #d4d4db;
+  --text: #17171c;
+  --text-2: #5c5c68;
+  --text-3: #8a8a96;
+  --accent: #2563eb;
+  --accent-soft: #eef3ff;
+
+  /* Box states: graphics need 3:1 on white, the text tones 4.5:1. */
+  --checked: #16a34a;
+  /* Strong enough that checked vs unchecked reads by fill alone, without hue. */
+  --checked-soft: rgb(22 163 74 / 0.3);
+  --unchecked: #dc2626;
+  --uncertain: #ea8a0c;
+  --uncertain-text: #b45309;
+  --uncertain-soft: #fff6e8;
+
+  --radius: 8px;
+  --shadow-sheet: 0 1px 2px rgb(23 23 28 / 0.06), 0 8px 24px -6px rgb(23 23 28 / 0.12);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  accent-color: var(--accent);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+::selection {
+  background: rgb(37 99 235 / 0.18);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-3);
+}
+
+/* ---------- Shell ---------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.file {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.file-meta {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------- Controls ---------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 1px rgb(23 23 28 / 0.04);
+  transition:
+    background-color 150ms var(--ease),
+    border-color 150ms var(--ease);
+}
+
+.button:hover {
+  background: #f6f6f8;
+  border-color: #c4c4cc;
+}
+
+.button:active {
+  background: #efeff2;
+}
+
+.button.primary {
+  height: 38px;
+  padding: 0 16px;
+  border-color: var(--text);
+  background: var(--text);
+  color: #fff;
+}
+
+.button.primary:hover {
+  background: #2c2c33;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: #ececf0;
+  color: var(--text);
+}
+
+.icon-button:disabled {
+  color: var(--line-strong);
+  cursor: default;
+}
+
+/* ---------- Workspace ---------- */
+
+.workspace {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  flex: 1;
+  min-height: 0;
+}
+
+.viewer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--canvas);
+  border-right: 1px solid var(--line);
+}
+
+.viewer-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 52px;
+  padding: 0 10px 0 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgb(241 241 244 / 0.9);
+  flex: none;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* Lives in the bar, never over the document, so it can't hide a box. */
+.legend {
+  display: flex;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-2);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* The legend swatch repeats each box style exactly, so the key needs no explanation. */
+.legend li::before {
+  content: '';
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+}
+
+.legend [data-state='checked']::before,
+.box[data-state='checked'] {
+  border: 2px solid var(--checked);
+  background: var(--checked-soft);
+}
+
+.legend [data-state='unchecked']::before,
+.box[data-state='unchecked'] {
+  border: 2px solid var(--unchecked);
+}
+
+.legend [data-state='uncertain']::before {
+  border: 2px dashed var(--uncertain);
+}
+
+/* Low confidence redraws only the border, so a checked box keeps its fill. */
+.box[data-uncertain] {
+  border-style: dashed;
+  border-color: var(--uncertain);
+}
+
+.viewer-canvas {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 28px 32px;
+}
+
+.viewer-note {
+  max-width: 36ch;
+  margin: 64px auto;
+  color: var(--text-2);
+  text-align: center;
+}
+
+/* ---------- Document sheet and boxes ---------- */
+
+.sheet {
+  position: relative;
+  max-width: 980px;
+  margin: 0 auto;
+  background: var(--surface);
+  box-shadow: var(--shadow-sheet);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sheet img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.sheet.placeholder {
+  aspect-ratio: 8.5 / 11;
+  background: linear-gradient(var(--surface), #f8f8fa);
+}
+
+.box {
+  position: absolute;
+  border-radius: 2px;
+  cursor: pointer;
+  transition:
+    opacity 150ms var(--ease),
+    box-shadow 150ms var(--ease);
+}
+
+/* While one box is in focus the rest step back, so the leader's target is unmistakable. */
+.sheet[data-active] .box:not([data-active]) {
+  opacity: 0.35;
+}
+
+.box[data-active] {
+  z-index: 1;
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--accent);
+}
+
+/* Loading: one band sweeps the page while the service reads it. */
+.scan {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgb(37 99 235 / 0.1) 46%,
+    rgb(37 99 235 / 0.45) 50%,
+    transparent 50.4%
+  );
+  background-size: 100% 200%;
+  animation: scan 1.8s var(--ease) infinite;
+  pointer-events: none;
+}
+
+@keyframes scan {
+  from {
+    background-position: 0 100%;
+  }
+  to {
+    background-position: 0 -20%;
+  }
+}
+
+/* ---------- Detections panel ---------- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.panel-head h2 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f0f0f3;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.panel-head .muted {
+  font-size: 12.5px;
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.rows {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 26px 18px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 10px 6px 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row[data-active] {
+  border-color: rgb(37 99 235 / 0.35);
+  background: var(--accent-soft);
+}
+
+.row:focus-visible {
+  outline-offset: -1px;
+}
+
+.row-index {
+  color: var(--text-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.row-icon {
+  display: grid;
+}
+
+.row-icon.checked {
+  color: var(--checked);
+}
+
+.row-icon.unchecked {
+  color: var(--unchecked);
+}
+
+.row-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.no-label {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+/* Pinned to the last column so the state lines up whether or not a row has the low-confidence tag. */
+.row-state {
+  grid-column: 5;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.uncertain {
+  grid-column: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 999px;
+  background: var(--uncertain-soft);
+  color: var(--uncertain-text);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.uncertain svg {
+  width: 13px;
+  height: 13px;
+}
+
+.row.skeleton {
+  cursor: default;
+  grid-template-columns: 44px 1fr;
+}
+
+.row.skeleton span {
+  height: 10px;
+  border-radius: 4px;
+  background: #efeff2;
+  animation: pulse 1.4s ease-in-out infinite;
+  animation-delay: inherit;
+}
+
+.row.skeleton span:last-child {
+  width: 62%;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.panel-note {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  margin: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text-2);
+}
+
+.panel-note-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.panel-note.error {
+  border-color: #f3c9c6;
+  background: #fff7f6;
+}
+
+.panel-note.error .panel-note-title {
+  color: #b42318;
+}
+
+.panel-note .button {
+  margin-top: 8px;
+}
+
+/* ---------- Connector ---------- */
+
+.connector {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.connector path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+/* A thin, translucent casing separates the line from the form's text without erasing it. */
+.connector path.casing {
+  stroke: var(--surface);
+  stroke-width: 2.5;
+  opacity: 0.55;
+}
+
+.connector path[data-offscreen] {
+  stroke-dasharray: 4 4;
+}
+
+.connector circle {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+/* ---------- Empty state ---------- */
+
+.empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 24px 10vh;
+  text-align: center;
+}
+
+.empty h1 {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.empty > p {
+  max-width: 46ch;
+  color: var(--text-2);
+  font-size: 15px;
+  text-wrap: pretty;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(560px, 100%);
+  margin-top: 18px;
+  padding: 44px 32px 36px;
+  border: 2px dashed #a1a1ac;
+  border-radius: 16px;
+  background: #f6f7f9;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 200ms var(--ease),
+    background-color 200ms var(--ease),
+    scale 200ms var(--ease);
+}
+
+.dropzone:hover {
+  border-color: #7c7c88;
+  background: #f1f2f5;
+}
+
+.dropzone[data-dragging] {
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--accent-soft);
+  scale: 1.015;
+}
+
+.dropzone:focus-visible {
+  outline-offset: 4px;
+}
+
+.dropzone-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dropzone[data-dragging] .dropzone-title {
+  color: var(--accent);
+}
+
+.dropzone-hint {
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+
+.dropzone .button {
+  margin-top: 18px;
+}
+
+/* Three boxes, one per state: the whole product in one glance. They lift when a file is over the zone. */
+.dropzone-art {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.dropzone-art span {
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
+  transition: translate 250ms var(--ease);
+}
+
+.dropzone[data-dragging] .dropzone-art span {
+  translate: 0 -6px;
+}
+
+.dropzone[data-dragging] .dropzone-art span:nth-child(2) {
+  transition-delay: 40ms;
+}
+
+.dropzone[data-dragging] .dropzone-art span:nth-child(3) {
+  transition-delay: 80ms;
+}
+
+.dropzone-art [data-state='checked'] {
+  border: 2.5px solid var(--checked);
+  background: var(--checked-soft);
+}
+
+.dropzone-art [data-state='unchecked'] {
+  border: 2.5px solid var(--unchecked);
+}
+
+.dropzone-art [data-state='uncertain'] {
+  border: 2.5px dashed var(--uncertain);
+}
+
+.drop-overlay {
+  position: fixed;
+  inset: 8px;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  background: rgb(238 243 255 / 0.88);
+  backdrop-filter: blur(2px);
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* ---------- Narrow screens: stack, no leader line ---------- */
+
+@media (max-width: 860px) {
+  .app {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .viewer-bar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 10px 10px 10px 14px;
+    row-gap: 6px;
+  }
+
+  .file {
+    flex-basis: 100%;
+  }
+
+  .workspace {
+    display: block;
+  }
+
+  .viewer {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .legend {
+    order: 1;
+    flex-basis: 100%;
+    gap: 12px;
+  }
+
+  .viewer-canvas {
+    overflow: visible;
+    padding: 16px;
+  }
+
+  .panel-body {
+    overflow: visible;
+  }
+
+  .connector {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropzone,
+  .dropzone-art span {
+    transition: none;
+  }
+
+
+  .scan {
+    animation: none;
+    background: rgb(37 99 235 / 0.06);
+  }
+
+  .row.skeleton span {
+    animation: none;
+  }
+}

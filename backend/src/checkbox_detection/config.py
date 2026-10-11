@@ -18,3 +18,4 @@ class Settings(BaseSettings):
     pdf_dpi: int = 300
     cv_threads: int = 1
     log_level: str = "INFO"
+    static_dir: Path | None = None

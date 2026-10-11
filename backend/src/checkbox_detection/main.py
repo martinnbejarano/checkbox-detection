@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import cv2
 from fastapi import FastAPI, Request, Response
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 
 from checkbox_detection.api.errors import add_error_handlers, problem
@@ -42,6 +43,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.middleware("http")(log_requests)
     add_error_handlers(app)
     app.include_router(router)
+    # Mounted after the routes so /detect and /health win over the built demo page.
+    if settings.static_dir:
+        app.mount("/", StaticFiles(directory=settings.static_dir, html=True), name="static")
     return app
 
 

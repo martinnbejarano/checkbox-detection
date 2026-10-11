@@ -31,8 +31,8 @@ What makes the work good, in priority order:
 ```json
 {
   "boxes": [
-    { "bbox": [x1, y1, x2, y2], "is_checked": true,  "page": 0 },
-    { "bbox": [x1, y1, x2, y2], "is_checked": false, "page": 0 }
+    { "bbox": [x1, y1, x2, y2], "is_checked": true,  "page": 0, "score": 0.91 },
+    { "bbox": [x1, y1, x2, y2], "is_checked": false, "page": 0, "score": 0.34 }
   ]
 }
 ```
@@ -40,11 +40,12 @@ What makes the work good, in priority order:
 With `?labels=true`:
 
 ```json
-{ "boxes": [ { "bbox": [x1, y1, x2, y2], "is_checked": true, "page": 0, "label": "Urban" } ] }
+{ "boxes": [ { "bbox": [x1, y1, x2, y2], "is_checked": true, "page": 0, "score": 0.91, "label": "Urban" } ] }
 ```
 
 - `bbox`: integer pixel coordinates of the top-left and bottom-right corners, in the **upright** image (after EXIF rotation is applied). For PDFs, coordinates refer to the page rendered at 300 DPI.
 - `page`: 0-based page index. It is always `0` for images. This field extends the challenge contract without breaking it: a client that ignores `page` still gets the exact challenge shape. ([multi-page ticket](https://github.com/martinnbejarano/checkbox-detection/issues/8))
+- `score`: the locator's confidence that the box is a checkbox, in [0, 1] (stage 1, `Rect.score`). YOLOX gives objectness × class probability; the OpenCV locator has no confidence and always returns `1.0`. The demo page flags low-confidence boxes with it. Like `page`, it is an extra field: a client that ignores it still gets the challenge shape.
 - `label`: present only when `labels=true`. The text OCR'd from the strip right of the box (section 6, stage 3), or `null` when nothing is read. Like `page`, it extends the contract without breaking it.
 - Box order: by page, then top to bottom, then left to right. A stable order makes the golden tests and diffs readable.
 - If nothing is found, the response is `200` with `{"boxes": []}`. An empty result is not an error.
@@ -521,7 +522,7 @@ Stage tuning parameters are **not** settings. They live in frozen dataclasses ne
 
 - **Python 3.13 and uv** (`uv.lock` committed). Runtime dependencies: `fastapi`, `uvicorn`, `pydantic-settings`, `python-multipart`, `opencv-python-headless`, `numpy`, `pillow`, `pypdfium2`, `onnxruntime`, `rapidocr`. Dev dependencies: `pytest`, `httpx2` (Starlette's TestClient deprecates `httpx`), `ruff`, `mypy`. `huggingface_hub` is never a dependency: `make models` and the Docker build fetch each pinned file with `curl` from `huggingface.co/<repo>/resolve/<sha>/<file>`. PyTorch is never a dependency of the service.
 - **ruff** for linting (rule sets E, F, I, B, UP, SIM, RUF) and formatting. **mypy --strict** on `backend/src/`.
-- **Make targets:** one root `Makefile`, which is the only entry point. Backend targets run `uv --directory backend …`, and frontend targets run `npm --prefix frontend …`. The targets are `install`, `models`, `lint`, `typecheck`, `test`, `eval`, `run`, `docker-build`, `docker-run`, `frontend-dev` and `frontend-build`. `make models` downloads the files pinned in `backend/models.txt` into `backend/models/<repo name>.onnx` (skips files already present); `make test` depends on it, so tests never skip for missing models. `make check` runs lint, typecheck and test for the backend, plus the frontend build (`tsc` and ESLint) once `frontend/` exists.
+- **Make targets:** one root `Makefile`, which is the only entry point. Backend targets run `uv --directory backend …`, and frontend targets run `npm --prefix frontend …`. The targets are `install`, `models`, `lint`, `typecheck`, `test`, `eval`, `run`, `docker-build`, `docker-run`, `frontend-dev` and `frontend-build`. `make models` downloads the files pinned in `backend/models.txt` into `backend/models/<repo name>.onnx` (skips files already present); `make test` depends on it, so tests never skip for missing models. `make check` runs lint, typecheck and test for the backend, plus the frontend build (`tsc` and oxlint) once `frontend/` exists.
 - **Conventions:**
   - Functions are small and named for what they return (`find_candidates`, `fill_ratio`).
   - Full type hints everywhere.
@@ -548,29 +549,25 @@ Stage tuning parameters are **not** settings. They live in frozen dataclasses ne
 
 ## 13. Demo frontend (`frontend/`)
 
-([frontend ticket](https://github.com/martinnbejarano/checkbox-detection/issues/12))
+([frontend ticket](https://github.com/martinnbejarano/checkbox-detection/issues/23))
 
-A very small page for trying the API by hand. It is a testing aid, not a product. It must stay simple enough to read in two minutes.
+One page to try the API by hand. It is the public face of the Railway demo and a tool for checking the pipeline's output, so it gets a real design (empty, loading and error states included). All UI copy is in English.
 
-- **Stack:** React, Vite and TypeScript, made from the official `react-ts` template. No UI library, no router and no state library. Plain CSS in one file. The browser's own `fetch` sends the request.
+- **Stack:** React, Vite and TypeScript, made from the official `react-ts` template. No UI library, no router and no state library. The only extra dependencies are `pdfjs-dist`, to render PDF pages, and `@fontsource-variable/inter`, the self-hosted UI face. The browser's own `fetch` sends the request.
 - **Behavior (one screen):**
-  1. A drag-and-drop zone that also opens the file picker on click. It accepts images and PDFs.
-  2. When a file is chosen, show a preview (images only) and the file name.
-  3. A **Process** button that sends `POST /detect?labels=true` with `FormData`. It is disabled while the request runs.
-  4. The result:
-     - The image, with each box drawn on top: green for checked, grey for unchecked. Coordinates are scaled from the image's natural size to its displayed size. Hovering a box shows its label.
-     - The raw response body as pretty-printed JSON, with a count of boxes found.
-     - Errors (4xx/5xx) show the problem+json `title` and `detail`.
-  5. For PDFs there is no overlay, only the JSON. `TODO`: render PDF pages in the browser for overlays.
-- **Files:**
-  - `frontend/src/App.tsx` holds the screen and its state: `file`, `status`, `result`, `error`.
-  - `frontend/src/DropZone.tsx` handles file selection.
-  - `frontend/src/BoxOverlay.tsx` draws the boxes.
-  - `frontend/src/api.ts` has one function, `detect(file): Promise<DetectResponse>`, plus the response types. The types are written by hand to match the backend's `api/schemas.py`.
+  1. Drag and drop, or click to pick, an image or a PDF. It is sent at once to `POST /detect?labels=true` as `FormData`.
+  2. Two columns:
+     - **Document** (left): the image, or the current PDF page rendered with pdf.js, with a page selector for multi-page PDFs. Each box is drawn on top: green when checked, red when unchecked, orange (dashed) when `score` is below `LOW_CONFIDENCE` (0.3, where YOLOX's real boxes start to thin out). Coordinates are scaled from the image's natural size (for PDFs, the page at 300 DPI) to its displayed size.
+     - **Detections** (right): one row per box with its label and state. A box without a label still gets a row that says the label was not detected.
+  3. Linking the two: hovering a row draws a connector line from the row to its box and highlights the box; hovering a box highlights its row. Clicking a row scrolls the document to the box. If the box is out of view the line points to the edge of the document pane. No zoom or pan.
+  4. Errors (4xx/5xx) show the problem+json `title` and `detail`.
+  5. Desktop first. On narrow screens the columns stack and the connector line is not drawn.
+- **Out of scope:** the raw JSON body, count summaries, filters and built-in sample pickers.
+- **API types:** `frontend/src/api.ts` has `detect(file): Promise<DetectResponse>` plus the response types, written by hand to match the backend's `api/schemas.py`.
 - **How it reaches the API:**
   - In development, `npm run dev` runs on Vite's port, and `vite.config.ts` proxies `/detect` to `http://localhost:8000`. No CORS setup is needed.
   - In Docker and on Railway, FastAPI serves the built frontend with `StaticFiles` at `/`, from the directory in the `static_dir` setting. The mount is added **after** the API routes, so `/detect` and `/health` take priority. It is one container and one origin, so again no CORS. When `static_dir` is unset (local backend-only runs), there is no mount. The backend never refers to `frontend/` by path.
-- **Quality bar:** the `react-ts` template's ESLint config passes and `tsc` passes (`npm run build` runs both). No frontend unit tests. One manual check is listed in the README.
+- **Quality bar:** the `react-ts` template's linter (oxlint) and `tsc` pass; `make frontend-build` runs `npm run lint` and `npm run build`. No frontend unit tests. One manual check is listed in the README.
 - **Make targets:** `make frontend-dev` and `make frontend-build`.
 
 ## 14. README (the writeup)
