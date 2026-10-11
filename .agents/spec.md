@@ -288,7 +288,7 @@ Rules for the OpenCV locator and `fill_ratio`:
 4. **Fill classification is relative.** The interior margin is a fraction of the measured side plus the measured border thickness. The ink ratio is a fraction of the interior area. Both work the same at 20 px and at 80 px.
 5. **Very small inputs are upscaled.** If the page's short edge is below about 1000 px (a low-resolution photo or crop), upscale it ×2 (nearest neighbour, so thin borders stay thin) before detection, then scale the boxes back to the original coordinates.
 
-Rule for the YOLOX locator: the model sees fixed 640 px inputs, so the page is cut into tiles whose size is a fraction of the page (default ≈ 1280 px on a 2550 px page), not a fixed pixel count. The probe found that recall drops on the large-box sample at one tile size, so tile size is a tuned `YoloxParams` field and is checked by the scale table below.
+Rule for the YOLOX locator: the model sees fixed 640 px inputs, so the page is cut into tiles whose size is a fraction of the page **width** (`tile_frac` 0.6, ≈ 1530 px on a 2550 px page), not a fixed pixel count. Width rather than the short edge, so a wide crop (the 1586×846 sample) is not cut into tiles that blow its boxes up. On the samples 0.5 loses large boxes and 0.7 small ones. The pretrained model only sees a box at a limited share of the tile (on bare synthetic pages about 0.6–2.2% of the page width; real forms do better), so one tile size cannot cover every box size: a second tile size merged by NMS is the upgrade path. Tile 1.0 finds more boxes on generic forms but gives looser bboxes and more state errors end to end; it is compared in the default-pipeline checkpoint (`.agents/research/model-selection-per-stage.md`).
 
 How this is verified:
 
@@ -321,11 +321,11 @@ Every threshold lives in one frozen `OpenCVParams` dataclass with a comment per 
 
 `nutrientdocs/form-field-v1-nano`: YOLOX-Nano, 0.9M params, 3.7 MB ONNX, classes Text / ChoiceButton / Signature. Only `ChoiceButton` is kept.
 
-1. **`tile_windows(page, params) -> list[window]`** (`geometry.py`): overlapping tiles covering the page (overlap larger than the largest allowed box side, so no box is cut in every tile).
+1. **`tile_windows(width, height, tile, overlap) -> list[window]`** (`geometry.py`): overlapping tiles covering the page (overlap larger than the largest allowed box side, so no box is cut in every tile). The page goes through `to_clean_gray` first (red watermark and blue fill removed), then to 3 channels.
 2. Per tile: letterbox to 640×640, one `session.run`, decode to page coordinates, keep `ChoiceButton` above `score_threshold`.
-3. **`nms`** across all tiles (global), then drop rects outside the size extremes of rule 1.
+3. **`nms`** across all tiles (global), then drop rects outside the size extremes of rule 1 (the upper one as a fraction of the page width).
 
-Probe on one M4 thread: 220–290 ms per page. Parameters (tile size, overlap, score threshold, NMS IoU) live in a frozen `YoloxParams`.
+Probe on one M4 thread: 50–270 ms per page. Parameters (tile size, overlap, score threshold 0.2 for recall, NMS IoU) live in a frozen `YoloxParams`.
 
 ### Stage 2a: `fill_ratio` classifier (`classify/fill_ratio.py`)
 
@@ -341,7 +341,8 @@ Probe on one M4 thread: 220–290 ms per page. Parameters (tile size, overlap, s
 `nutrientdocs/form-field-v1-state`: a 96k-param CNN on 40×160 gray crops that outputs empty / filled. Probe: about 0.2 ms per crop.
 
 - Crop each rect with padding, convert to clean gray (`binarize.to_clean_gray`), letterbox to 40×160, and stack all crops of the page into **one batched** `session.run`.
-- `checked_score` = P(filled). A score inside the ambiguous band (`StateCnnParams.ambiguous_band`) resolves to **`false`**, as for `fill_ratio`. A third "ambiguous" class is not trained.
+- `checked_score` = P(filled). A score within `ambiguous_margin` above `threshold` (`StateCnnParams`, 0.5–0.7) resolves to **`false`**, as for `fill_ratio`. A third "ambiguous" class is not trained.
+- Known limit: the pretrained model has no stray-stroke handling; a stroke crossing an empty box reads as checked.
 
 ### Stage 3: label (`label.py`)
 
@@ -454,8 +455,8 @@ Fakes: only to force a failure the real code can't produce on demand (the 500 pa
 | `test_api.py` | Integration | 200 shape with `page`; `?labels=true` adds `label` and the default omits it; 413 / 415 / 422 / missing field / 500 as problem+json without stack traces; `/health`; unknown stage name and missing model fail startup; one JSON log line per request with stage timings. |
 | `test_pdf.py` | Integration | A 2-page PDF made in the test returns boxes tagged `page` 0 and 1 at 300 DPI; page and pixel caps; encrypted and corrupt PDFs; concurrent PDF requests give consistent results. |
 | `test_golden.py` | Integration | Each sample × each (locator, classifier) combo reaches end-to-end accuracy ≥ a floor recorded after tuning, so a regression fails while small tweaks do not. |
-| `test_locate.py` | Unit | For each locator: synthetic pages, as grayscale and as RGB (same boxes expected); box sides 10–100 px on pages 1000–5000 px wide; bbox within ±3 px or ±5% of side; box touching a table line; red overlay; text-only page → `[]`; box across a tile border found once (yolox). |
-| `test_classify.py` | Unit | For each classifier, one case per class: empty, X, ✓, filled, stray stroke crossing the box, near-threshold fill → unchecked. |
+| `test_locate.py` | Unit | For each locator: synthetic pages, as grayscale and as RGB (same boxes expected); box sides 10–100 px on pages 1000–5000 px wide (yolox: only the box sizes the model sees, bbox within ±8% of side); bbox within ±3 px or ±5% of side; text-only page → `[]`. OpenCV: box touching a table line, colour overlays. YOLOX: red overlay ignored, box across a tile border found once. YOLOX has no table-line logic of its own, so that case is not tested for it. |
+| `test_classify.py` | Unit | For each classifier, one case per class: empty, X, ✓, filled, stray stroke crossing the box (`fill_ratio` only; the CNN calls it checked), near-threshold or ambiguous score → unchecked. |
 | `test_label.py` | Unit | `cv2.putText("Urban")` right of a drawn box → "Urban"; nothing to the right → `None`; the strip stops at the next box on the row and at the page edge. |
 | `test_geometry.py` | Pure | `iou`, `nms` (nested and cross-tile duplicates), reading order, `tile_windows` covers the page with overlap. |
 | `test_imaging.py` | Unit | PNG/JPEG/TIFF/WEBP decode; gray stays 2-D, RGBA on white, 16-bit gray rescaled; EXIF rotation; truncated → `CorruptInput`; non-image → `UnsupportedFormat`; pixel cap before decode. |
@@ -512,9 +513,9 @@ Stage tuning parameters are **not** settings. They live in frozen dataclasses ne
 
 ## 11. Tooling and code conventions
 
-- **Python 3.13 and uv** (`uv.lock` committed). Runtime dependencies: `fastapi`, `uvicorn`, `pydantic-settings`, `python-multipart`, `opencv-python-headless`, `numpy`, `pillow`, `pypdfium2`, `onnxruntime`, `rapidocr`. Dev dependencies: `pytest`, `httpx2` (Starlette's TestClient deprecates `httpx`), `ruff`, `mypy`. `huggingface_hub` is never a runtime dependency (it runs through `uvx` in `make models` and the Docker build). PyTorch is never a dependency of the service.
+- **Python 3.13 and uv** (`uv.lock` committed). Runtime dependencies: `fastapi`, `uvicorn`, `pydantic-settings`, `python-multipart`, `opencv-python-headless`, `numpy`, `pillow`, `pypdfium2`, `onnxruntime`, `rapidocr`. Dev dependencies: `pytest`, `httpx2` (Starlette's TestClient deprecates `httpx`), `ruff`, `mypy`. `huggingface_hub` is never a dependency: `make models` and the Docker build fetch each pinned file with `curl` from `huggingface.co/<repo>/resolve/<sha>/<file>`. PyTorch is never a dependency of the service.
 - **ruff** for linting (rule sets E, F, I, B, UP, SIM, RUF) and formatting. **mypy --strict** on `backend/src/`.
-- **Make targets:** one root `Makefile`, which is the only entry point. Backend targets run `uv --directory backend …`, and frontend targets run `npm --prefix frontend …`. The targets are `install`, `models`, `lint`, `typecheck`, `test`, `eval`, `run`, `docker-build`, `docker-run`, `frontend-dev` and `frontend-build`. `make models` downloads the files pinned in `backend/models.txt` into `backend/models/` (skips files already present); `make test` depends on it, so tests never skip for missing models. `make check` runs lint, typecheck and test for the backend, plus the frontend build (`tsc` and ESLint) once `frontend/` exists.
+- **Make targets:** one root `Makefile`, which is the only entry point. Backend targets run `uv --directory backend …`, and frontend targets run `npm --prefix frontend …`. The targets are `install`, `models`, `lint`, `typecheck`, `test`, `eval`, `run`, `docker-build`, `docker-run`, `frontend-dev` and `frontend-build`. `make models` downloads the files pinned in `backend/models.txt` into `backend/models/<repo name>.onnx` (skips files already present); `make test` depends on it, so tests never skip for missing models. `make check` runs lint, typecheck and test for the backend, plus the frontend build (`tsc` and ESLint) once `frontend/` exists.
 - **Conventions:**
   - Functions are small and named for what they return (`find_candidates`, `fill_ratio`).
   - Full type hints everywhere.
@@ -530,7 +531,7 @@ Stage tuning parameters are **not** settings. They live in frozen dataclasses ne
 
 - **Dockerfile:** `backend/Dockerfile`, multi-stage, following uv's official recipe. It is built from the repo root, `docker build -f backend/Dockerfile .`, because the image also contains the built frontend.
   - Frontend stage: `node:22-slim`, which runs `npm ci && npm run build` in `frontend/` and produces `frontend/dist`, which is copied to `/app/static`.
-  - Models stage: reads `backend/models.txt` and runs `hf download <repo> <file> --revision <full 40-char sha>` for each line (via `uvx --from huggingface_hub`), producing `/app/models`. Weights never come from a mutable branch name.
+  - Models stage: reads `backend/models.txt` and fetches `https://huggingface.co/<repo>/resolve/<full 40-char sha>/<file>` for each line, as `make models` does, producing `/app/models`. Weights never come from a mutable branch name.
   - Builder: `python:3.13-slim` plus a pinned `ghcr.io/astral-sh/uv`, running `uv sync --locked --no-dev`.
   - Runtime: `python:3.13-slim` with only `backend/.venv`, `backend/src`, `/app/static` and `/app/models`, plus `CHECKBOX_STATIC_DIR=/app/static` and `CHECKBOX_MODELS_DIR=/app/models`. It runs as a non-root user with an exec-form `CMD ["uvicorn", "checkbox_detection.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
   - `HEALTHCHECK` via python/urllib on `/health`.

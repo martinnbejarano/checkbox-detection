@@ -1,5 +1,6 @@
 import json
 from collections.abc import Iterator
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -52,16 +53,30 @@ def test_health_is_ok_after_startup() -> None:
 @pytest.mark.parametrize(
     ("settings", "message"),
     [
-        (Settings(locator="nope"), r"Unknown locator 'nope'; choose one of \['opencv'\]"),
+        (Settings(locator="nope"), r"Unknown locator 'nope'; choose one of \['opencv', 'yolox'\]"),
         (
             Settings(classifier="nope"),
-            r"Unknown classifier 'nope'; choose one of \['fill_ratio'\]",
+            r"Unknown classifier 'nope'; choose one of \['cnn', 'fill_ratio'\]",
         ),
     ],
     ids=["locator", "classifier"],
 )
 def test_unknown_stage_name_fails_at_startup(settings: Settings, message: str) -> None:
     with pytest.raises(ValueError, match=message), TestClient(create_app(settings)):
+        pass
+
+
+@pytest.mark.parametrize(
+    "settings", [Settings(locator="yolox"), Settings(classifier="cnn")], ids=["yolox", "cnn"]
+)
+def test_missing_model_file_fails_at_startup(settings: Settings, tmp_path: Path) -> None:
+    settings = settings.model_copy(update={"models_dir": tmp_path})
+    with (
+        pytest.raises(
+            FileNotFoundError, match=r"not found: run `make models`.*CHECKBOX_MODELS_DIR"
+        ),
+        TestClient(create_app(settings)),
+    ):
         pass
 
 

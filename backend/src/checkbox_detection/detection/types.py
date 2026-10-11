@@ -20,5 +20,5 @@ class Box:
 
     rect: Rect
     is_checked: bool
-    checked_score: float  # interior ink ratio for fill_ratio; internal, not in the response
+    checked_score: float  # ink ratio (fill_ratio) or P(filled) (cnn); internal, not in response
     label: str | None = None

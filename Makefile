@@ -1,9 +1,17 @@
 BACKEND = uv --directory backend
 
-.PHONY: install lint typecheck test check run
+.PHONY: install models lint typecheck test check run
 
 install:
 	$(BACKEND) sync
+
+# Each line of backend/models.txt is saved as backend/models/<repo name>.onnx; present files are kept.
+models:
+	@grep -Ev '^(#|$$)' backend/models.txt | while read -r repo file sha; do \
+		out=backend/models/$${repo#*/}.onnx; \
+		[ -f $$out ] || { curl -fsSL --create-dirs -o $$out.part \
+			https://huggingface.co/$$repo/resolve/$$sha/$$file && mv $$out.part $$out; } || exit 1; \
+	done
 
 lint:
 	$(BACKEND) run ruff format --check .
@@ -12,7 +20,7 @@ lint:
 typecheck:
 	$(BACKEND) run mypy
 
-test:
+test: models
 	$(BACKEND) run pytest
 
 check: lint typecheck test
