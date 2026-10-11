@@ -1,18 +1,14 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 
-// The backend renders PDF pages at this DPI, so PDF bboxes live in that pixel space.
 const API_DPI = 300
-// Sharp enough for a retina display of a page fitted to the viewer, at a fraction of the memory.
 const RENDER_DPI = 200
 
-/** One displayable page. `width` and `height` are in bbox pixel space, not the image's own size. */
-export type Page = { url: string; width: number; height: number }
+export type Page = { url: string; width: number; height: number; index: number }
 
 export function isPdf(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
 }
 
-/** pdf.js is loaded on the first PDF only, so image uploads never download it. */
 export async function openPdf(file: File): Promise<PDFDocumentProxy> {
   const [{ getDocument, GlobalWorkerOptions }, worker] = await Promise.all([
     import('pdfjs-dist'),
@@ -32,7 +28,7 @@ export async function renderPdfPage(pdf: PDFDocumentProxy, index: number): Promi
   await page.render({ canvas, viewport }).promise
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve))
   if (!blob) throw new Error('Could not render the page')
-  return { url: URL.createObjectURL(blob), width: Math.round(api.width), height: Math.round(api.height) }
+  return { url: URL.createObjectURL(blob), width: Math.round(api.width), height: Math.round(api.height), index }
 }
 
 /** Images are shown as-is; the browser applies EXIF rotation like the backend does. */
@@ -46,5 +42,5 @@ export async function loadImage(file: File): Promise<Page> {
     URL.revokeObjectURL(url)
     throw error
   }
-  return { url, width: image.naturalWidth, height: image.naturalHeight }
+  return { url, width: image.naturalWidth, height: image.naturalHeight, index: 0 }
 }

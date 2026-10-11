@@ -246,9 +246,14 @@ p {
   border: 2px solid var(--unchecked);
 }
 
-.legend [data-state='uncertain']::before,
-.box[data-state='uncertain'] {
+.legend [data-state='uncertain']::before {
   border: 2px dashed var(--uncertain);
+}
+
+/* Low confidence redraws only the border, so a checked box keeps its fill. */
+.box[data-uncertain] {
+  border-style: dashed;
+  border-color: var(--uncertain);
 }
 
 .viewer-canvas {

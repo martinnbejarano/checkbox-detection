@@ -2,8 +2,8 @@ import { useLayoutEffect, useState, type RefObject } from 'react'
 
 type Props = {
   active: number | null
-  stage: RefObject<HTMLElement | null> // the element the SVG covers
-  viewer: RefObject<HTMLElement | null> // the scrolling document pane
+  stage: RefObject<HTMLElement | null> 
+  viewer: RefObject<HTMLElement | null> 
 }
 
 type Line = { d: string; box: [number, number]; row: [number, number]; offscreen: boolean }
@@ -18,7 +18,7 @@ const LIFT = 2
 
 /**
  * Draws a leader from the active box to its row: up from the box's top edge, right to the pane
- * divider, along the divider to the row's height, then into the row. Re-measured on scroll or resize.
+ * divider, along the divider to the row's height, then into the row. Re-measured on scroll and on resize.
  */
 export function Connector({ active, stage, viewer }: Props) {
   const [line, setLine] = useState<Line | null>(null)
@@ -51,11 +51,15 @@ export function Connector({ active, stage, viewer }: Props) {
       })
     }
     measure()
+    // Resizes cover the window, the image finishing its load and the list reflowing.
+    const observer = new ResizeObserver(measure)
+    for (const el of [root, root.querySelector(`[data-box="${active}"]`), root.querySelector(`[data-row="${active}"]`)]) {
+      if (el) observer.observe(el)
+    }
     root.addEventListener('scroll', measure, true)
-    window.addEventListener('resize', measure)
     return () => {
+      observer.disconnect()
       root.removeEventListener('scroll', measure, true)
-      window.removeEventListener('resize', measure)
     }
   }, [active, stage, viewer])
 

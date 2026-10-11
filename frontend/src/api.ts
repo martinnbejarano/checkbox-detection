@@ -1,4 +1,3 @@
-// Hand-written to match backend/src/checkbox_detection/api/schemas.py.
 export type Box = {
   bbox: [number, number, number, number]
   is_checked: boolean
@@ -9,7 +8,6 @@ export type Box = {
 
 export type DetectResponse = { boxes: Box[] }
 
-/** A failed request, carrying the problem+json `title` and `detail`. */
 export class ApiError extends Error {
   title: string
   detail: string
@@ -21,16 +19,29 @@ export class ApiError extends Error {
   }
 }
 
+export const ACCEPT = 'image/png,image/jpeg,image/tiff,image/webp,application/pdf,.pdf,.tif,.tiff'
+
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+const accepted = (file: File) =>
+  ACCEPT.split(',').some((type) => (type.startsWith('.') ? file.name.toLowerCase().endsWith(type) : file.type === type))
+
 export async function detect(file: File, signal?: AbortSignal): Promise<DetectResponse> {
+  if (!accepted(file)) throw new ApiError('Unsupported file type', 'Upload a PNG, JPEG, TIFF, WEBP or PDF file.')
+
+  if (file.size > MAX_UPLOAD_BYTES) throw new ApiError('File too large', 'Upload a file of 20 MB or less.')
+
   const body = new FormData()
   body.append('file', file)
   let response: Response
+
   try {
     response = await fetch('/detect?labels=true', { method: 'POST', body, signal })
   } catch (error) {
     if (signal?.aborted) throw error
     throw new ApiError("Can't reach the detection service", 'Check your connection and try again.')
   }
+  
   if (!response.ok) {
     const problem = await response.json().catch(() => null)
     throw new ApiError(
@@ -40,11 +51,3 @@ export async function detect(file: File, signal?: AbortSignal): Promise<DetectRe
   }
   return response.json()
 }
-
-/**
- * Below this locator score a box is flagged as low confidence. YOLOX keeps boxes from 0.2 and real
- * boxes already score near 0.3 (see YoloxParams.score_threshold); OpenCV always scores 1.
- */
-export const LOW_CONFIDENCE = 0.3
-
-export const isUncertain = (box: Box) => box.score < LOW_CONFIDENCE
