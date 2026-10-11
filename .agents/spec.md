@@ -412,6 +412,8 @@ Because Claude also builds the pipeline, the main evidence of generalization is 
 
 About 15–20 pages from the public-domain Roboflow housing-forms dataset (`annotation-mmvj7/new_merge_project`). They are chosen to differ from the samples in layout and box size, and converted to the same ground-truth JSON with class names remapped to `is_checked` (no `label`). They are stored under `backend/tests/data/external/` with a README giving the source, license and selection rule.
 
+As built: 15 pages, 419 boxes (155 checked), from two form layouts at five image sizes; boxes are 12–31 px. The source annotates each box together with its label text, so each region was shrunk to the printed square at its left end (template match, then every box reviewed on zoomed crops; 49 corrected by hand). Which boxes exist and their state are the third party's. Forms that mark answers by circling a word are excluded (not a printed box).
+
 - Parameters are tuned **only** on the 4 samples.
 - The README reports both tables: "samples (tuned)" and "external (unseen)".
 - Choosing the default pipeline, and whether to fine-tune anything, is a human checkpoint. The user looks at both tables, broken down by combo, tag and scale. There is no fixed threshold.
@@ -428,7 +430,7 @@ About 15–20 pages from the public-domain Roboflow housing-forms dataset (`anno
   - With `--scales`, the same metrics for each sample resized by each factor (scale-robustness table).
   - Latency p50 and p95 per page (in-process; the Docker numbers are measured separately with `curl` timing).
 - With `--labels` (samples only, since the external set has no labels): **label accuracy** over matched boxes whose ground truth has a label = share whose OCR text equals the ground truth after case and whitespace normalization, plus OCR latency per page.
-- Output: Markdown tables pasted into the README.
+- Output: Markdown tables pasted into the README. `make eval` runs every combo with `--scales 0.5,1,1.5 --labels`.
 
 ## 8. Tests
 
