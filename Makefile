@@ -1,7 +1,7 @@
 BACKEND = uv --directory backend
 FRONTEND = npm --prefix frontend
 
-.PHONY: install models lint typecheck test check run frontend-dev frontend-build
+.PHONY: install models lint typecheck test eval check run frontend-dev frontend-build
 
 install:
 	$(BACKEND) sync
@@ -24,6 +24,10 @@ typecheck:
 
 test: models
 	$(BACKEND) run pytest
+
+# Markdown tables per locator x classifier combo: samples, external set, by tag, by scale, labels.
+eval: models
+	$(BACKEND) run python scripts/evaluate.py --scales 0.5,1,1.5 --labels
 
 check: lint typecheck test frontend-build
 

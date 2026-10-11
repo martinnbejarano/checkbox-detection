@@ -1,0 +1,22 @@
+{
+  "image": "backend/tests/data/external/external-12.jpg",
+  "boxes": [
+    {"bbox": [396, 333, 408, 349], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [394, 385, 406, 401], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [321, 387, 333, 403], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [317, 331, 329, 347], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [739, 627, 751, 643], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [810, 628, 822, 644], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [745, 702, 757, 718], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [816, 702, 828, 718], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [207, 627, 219, 643], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [207, 701, 219, 717], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [207, 582, 219, 598], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [207, 819, 219, 835], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [208, 885, 220, 901], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [208, 964, 220, 980], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [207, 1071, 219, 1087], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [208, 1178, 220, 1194], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [207, 1280, 219, 1296], "is_checked": false, "label": null, "tags": []}
+  ]
+}

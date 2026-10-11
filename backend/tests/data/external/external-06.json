@@ -1,0 +1,9 @@
+{
+  "image": "backend/tests/data/external/external-06.jpg",
+  "boxes": [
+    {"bbox": [314, 457, 341, 484], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [452, 457, 479, 484], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [306, 873, 333, 900], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [453, 874, 480, 901], "is_checked": false, "label": null, "tags": []}
+  ]
+}
