@@ -1,10 +1,12 @@
 # Checkbox Detection Service: Implementation Spec
 
-Status: ready to implement · revised 2026-10-10 (3-stage pipeline)
+Status: ready to implement · revised 2026-10-11 (tuning on public data; samples are eval only)
 Source of decisions: [Wayfinder map](https://github.com/martinnbejarano/checkbox-detection/issues/1). Each section links the ticket that holds the reasoning.
 Background research: `.agents/research/` (classical CV and services, deep learning and data, API architecture, PDF rasterization, public datasets, learned pipeline, pipeline code structure).
 
 **Revision 2026-10-10.** Detection is now a 3-stage pipeline: locate → classify state → label (OCR). OpenCV stays as the baseline locator; a pretrained ONNX locator and state classifier are added next to it, and the evaluation picks the default. Label extraction reverses the earlier "not built" decision of [#13](https://github.com/martinnbejarano/checkbox-detection/issues/13): it is opt-in (`?labels=true`) so the challenge call does not pay for it. Model choices: `.agents/research/learned-pipeline.md`. Code layout: `.agents/research/pipeline-code-structure.md`.
+
+**Revision 2026-10-11.** Four hand-labeled pages are too few to tune on. Every stage is now tuned on public datasets and synthetic pages (section 6, "Tuning on public data"): `yolox` and `cnn` get fine-tuned weights, and the `*Params` of every stage are chosen by a search on a validation split. The 4 samples, the external set and any page the user adds are **evaluation only**. This brings forward the fine-tuning that was planned for after the default-pipeline checkpoint.
 
 ---
 
@@ -359,16 +361,30 @@ Probe on one M4 thread: 50–270 ms per page. Parameters (tile size, overlap, sc
 - Built and warmed up once in `lifespan` on a blank strip, because RapidOCR loads models lazily on first call. Its thread setting is forced to `onnx_threads` (its default is all cores).
 - `TODO(prod)`: labels to the left of the box, and the question of the row.
 
-### Beyond the pretrained models (built only if the numbers require it)
+### Tuning on public data ([tuning ticket](https://github.com/martinnbejarano/checkbox-detection/issues/21))
 
-Decided at the [default-pipeline checkpoint](https://github.com/martinnbejarano/checkbox-detection/issues/22), which creates the ticket.
+No public dataset has bbox + state + label together, so each stage uses the sources that carry what it needs. Background: `.agents/research/public-checkbox-datasets.md`.
 
-| Evidence from `evaluate.py` | Change | Scope |
+| Stage | What is tuned | Train / validation data |
 |---|---|---|
-| State accuracy is the main error (watermark, ✓, faint marks) | Fine-tune `form-field-v1-state` (or a ~50–100k-param CNN) on crops, export to ONNX. | New weights for `classify/state_cnn.py`. |
-| Detection recall is the main error (boxes fused with lines, hand-drawn strokes) | Fine-tune a detector (RF-DETR Nano/Small, or YOLO26 — AGPL is acceptable for this public repo). Export to ONNX, run tiled with global NMS. | New `locate/<name>.py`, one dict entry. |
+| `yolox` | Weights: fine-tune `form-field-v1-nano` from its published `best_ckpt.pth` + `exp.py`, one class (checkbox, state ignored), then `YoloxParams` | Synthetic pages + real scans with bbox |
+| `cnn` | Weights: fine-tune `form-field-v1-state` from its published `state_cnn.pt` on box crops, then `StateCnnParams` | Synthetic marks + real scans with state |
+| `opencv`, `fill_ratio` | `OpenCVParams`, `FillParams`, `BinarizeParams` by search (no weights) | Validation split of the same data |
+| label | `LabelParams` only; the OCR recognizer is not fine-tuned (no licensed dataset has box + label text) | Synthetic pages, label text taken from the PDF text layer |
 
-Training data for either path: synthetic pages rendered from the official blank 1004 / 1004MC / 1004C PDFs (every checkbox is a vector square, so labels are exact), plus real scans from Roboflow (861 public-domain housing forms, 2,830 CC BY pages). The 4 samples are never used for training. See [datasets ticket](https://github.com/martinnbejarano/checkbox-detection/issues/2) and `.agents/research/public-checkbox-datasets.md`. Training code lives in `backend/training/`, outside `src/`, so the service never imports it, and the runtime image never contains PyTorch.
+Sources (classes remapped to `checked` / `unchecked`; licences allow training):
+
+- **Synthetic:** the official blank 1004 / 1004MC / 1004C PDFs. Every checkbox is a vector square, so bbox and label are exact. Boxes are marked at random (X, ✓, fill, partial fill, hand-drawn strokes, strokes crossing the box), rendered at several DPIs and degraded like a scan (slight rotation, blur, noise, JPEG, colour watermark).
+- **Real scans:** Roboflow `checkboxes-2` (1.8k, CC BY 4.0), `cogniquest-idc1w/checkboxes-xtv3p` (2.8k, CC BY 4.0), `tax-form-checkbox-detection` (126, CC BY 4.0), and the smaller CC BY 4.0 sets in the research note.
+- **Excluded from training:** `annotation-mmvj7/new_merge_project`, whose pages are the external evaluation set; AutoFormBench and CheckboxQA (non-commercial, evaluation only).
+
+Rules:
+
+- Train and validation splits are made **by source form**, so a validation page never shares a layout with a training page. Parameters, thresholds and the training checkpoint are chosen on validation only.
+- Evaluation pages (4 samples, external set, user-added pages) are never read by `training/`.
+- Training runs locally (PyTorch on Apple MPS). Code lives in `backend/training/`, outside `src/`, so the service never imports it and the runtime image never contains PyTorch. Datasets are downloaded by a script, not committed.
+- Fine-tuned weights are exported to ONNX with the same input and output as the pretrained model, so `locate/yolox.py` and `classify/state_cnn.py` only change their model file. They are committed to the repo under their own names in `backend/models/` (≈4 MB; only the final version of each stage), while the pretrained weights fetched by `make models` stay as the "before" row of the evaluation tables.
+- Tuning still favours detection recall, and resolves an ambiguous state to unchecked.
 
 ## 7. Evaluation
 
@@ -409,15 +425,15 @@ Allowed tags: `watermark`, `color_fill`, `handwriting`, `checkmark`, `partial_fi
 
 Because Claude also builds the pipeline, the main evidence of generalization is the **external set** below. Its labels were made by third parties.
 
-### External evaluation set (never used for tuning)
+### External evaluation set (never used for tuning or training)
 
 About 15–20 pages from the public-domain Roboflow housing-forms dataset (`annotation-mmvj7/new_merge_project`). They are chosen to differ from the samples in layout and box size, and converted to the same ground-truth JSON with class names remapped to `is_checked` (no `label`). They are stored under `backend/tests/data/external/` with a README giving the source, license and selection rule.
 
 As built: 15 pages, 419 boxes (155 checked), from two form layouts at five image sizes; boxes are 12–31 px. The source annotates each box together with its label text, so each region was shrunk to the printed square at its left end (template match, then every box reviewed on zoomed crops; 49 corrected by hand). Which boxes exist and their state are the third party's. Forms that mark answers by circling a word are excluded (not a printed box).
 
-- Parameters are tuned **only** on the 4 samples.
-- The README reports both tables: "samples (tuned)" and "external (unseen)".
-- Choosing the default pipeline, and whether to fine-tune anything, is a human checkpoint. The user looks at both tables, broken down by combo, tag and scale. There is no fixed threshold.
+- Nothing is tuned or trained on the samples or the external set: both are evaluation only (section 6, "Tuning on public data"). Pages the user adds later join them under `backend/tests/data/`.
+- The README reports both tables: "samples" and "external", each before and after tuning.
+- Choosing the default pipeline is a human checkpoint. The user looks at both tables, broken down by combo, tag and scale. There is no fixed threshold.
 
 ### `scripts/evaluate.py`
 
@@ -579,8 +595,8 @@ Sections:
 3. Approach and why: a 3-stage pipeline (locate → classify → label), classical baseline next to pretrained ONNX models, measured, and swappable per stage.
 4. Results tables from `evaluate.py`: per combo, samples vs external, by tag, by scale, latency, and label accuracy.
 5. Alternatives considered and why they were not chosen: managed services (privacy, credentials, cost); VLMs (coarse coordinates on small boxes, minutes per page on CPU); Docling layout, FFDNet and `wendys-llc/checkbox-detector` (probe results); full-page OCR (time and memory); PaddleOCR / docTR / Tesseract; training from scratch.
-6. Tradeoffs and known limitations. These include: thresholds tuned on 4 pages (mitigated by the scale-robustness table); box styles never seen in the samples (rounded corners, circles, dashed borders); labels read only to the right of the box; the new URAR form replacing the 1004 family from 2026-11-02; first TIFF frame only; and the cap at 20 PDF pages.
-7. Next steps: fine-tuning (section 6 table), labels to the left and row questions, reading AcroForm values from born-digital PDFs.
+6. Tradeoffs and known limitations. These include: tuning data that are not appraisal scans (synthetic 1004 pages and other forms); box styles never seen in the samples (rounded corners, circles, dashed borders); labels read only to the right of the box; the new URAR form replacing the 1004 family from 2026-11-02; first TIFF frame only; and the cap at 20 PDF pages.
+7. Next steps: more real appraisal scans for training, labels to the left and row questions, reading AcroForm values from born-digital PDFs.
 8. `TODO(prod)` list.
 
 ## 15. Build order
@@ -588,7 +604,7 @@ Sections:
 **Workflow:** one GitHub ticket per vertical slice. Each ticket is built in a fresh `/implement` session on its own branch, opens a PR against `main` that links the ticket, and is merged by the user. There are three human checkpoints:
 
 1. ground-truth spot-check;
-2. default-pipeline decision (and whether to fine-tune);
+2. default-pipeline decision;
 3. approval before the Railway deploy (the user has an account; the deploy uses the Railway CLI).
 
 Order (done: scaffold, walking skeleton, upload validation):
@@ -597,7 +613,7 @@ Order (done: scaffold, walking skeleton, upload validation):
 
 1. Refactor `detection/` into the 3-stage layout with OpenCV behind it (no behavior change).
 2. In parallel: multi-page PDF; OpenCV locator + `fill_ratio` on real forms; YOLOX locator + CNN classifier; label stage; ground truth; demo frontend.
-3. `evaluate.py` over all combos, then tune and lock with golden tests.
+3. `evaluate.py` over all combos, then tune every stage on public data (fine-tune `yolox` and `cnn`) and lock with golden tests.
 4. Choose the default pipeline from the numbers.
 5. Dockerfile (frontend and models stages), then the Railway deploy.
 6. README with the measured results.
