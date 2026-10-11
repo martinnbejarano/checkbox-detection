@@ -83,7 +83,7 @@ api/routes.py ── reads bytes, enforces body limit, reads ?labels
 imaging/  ───── bytes → list[Page]      (sniff format, decode or rasterize, validate, EXIF, keep native gray/color)
    │
    ▼
-detection/ ──── Pipeline.run(page, labels) → list[Box]   (pure NumPy/OpenCV/onnxruntime; no FastAPI, no I/O)
+detection/ ──── Pipeline.run(page) → list[Box], then Pipeline.label(page, boxes) if labels   (pure NumPy/OpenCV/onnxruntime; no FastAPI, no I/O)
    │              1. Locator.locate(page)              → list[Rect]          where are the boxes
    │              2. StateClassifier.classify(page, …) → list[(bool, score)] is each one checked
    │              3. RapidOcrLabeler.label(page, …)    → list[str | None]   what does it say (only if labels)
@@ -109,15 +109,17 @@ class Pipeline:
     classifier: StateClassifier
     labeler: RapidOcrLabeler
 
-    def run(self, image: np.ndarray, labels: bool = False) -> list[Box]:
+    def run(self, image: np.ndarray) -> list[Box]:
         rects = self.locator.locate(image)
         states = self.classifier.classify(image, rects)
-        boxes = sort_reading_order([Box(r, c, s) for r, (c, s) in zip(rects, states, strict=True)])
-        if labels:
-            texts = self.labeler.label(image, [b.rect for b in boxes])
-            boxes = [replace(b, label=t) for b, t in zip(boxes, texts, strict=True)]
-        return boxes
+        return sort_reading_order([Box(r, c, s) for r, (c, s) in zip(rects, states, strict=True)])
+
+    def label(self, image: np.ndarray, boxes: list[Box]) -> list[Box]:
+        texts = self.labeler.label(image, [b.rect for b in boxes])
+        return [replace(b, label=t) for b, t in zip(boxes, texts, strict=True)]
 ```
+
+- `label` is a separate method so the route can skip it and log its time as `label_ms`.
 
 - `run()` makes three named calls, so the stage order is visible in one place. A generic list of stages (docling's `build_pipe`) would hide it.
 - `Locator` and `StateClassifier` are `typing.Protocol`s because each has two implementations chosen by config. Test fakes need no inheritance.
@@ -349,8 +351,11 @@ Probe on one M4 thread: 50–270 ms per page. Parameters (tile size, overlap, sc
 `RapidOcrLabeler`, RapidOCR 3.x (Apache-2.0, ONNX, PP-OCR models bundled in the wheel), **recognition only** (`use_det=False`, `use_cls=False`). Probe: about 9 ms per crop. Full-page OCR is not used: it took about 10 s and 2.5 GB per page.
 
 - Runs only when the request has `labels=true`.
-- For each box, crop a strip to its right: same row band (box height plus a small margin), from the box's right edge to the next box on the same row or a maximum width proportional to the box side.
-- Recognize the strip; strip whitespace; empty or low-confidence text becomes `None`.
+- For each box, crop a strip of the clean gray page (`binarize.to_clean_gray`) to its right: same row band (box height plus 25% of the side above and below), from the box's right edge to the next box on the same row, 15 box sides, or the page edge.
+- Cut the strip where the label ends: at the first vertical rule (a column inked over ≥ 90% of the band) or after a blank run of one box side following the text. Underlines and row rules are erased first (`binarize.remove_lines`) so they do not count as text. A strip with no text is `None` without running OCR.
+- Pad the strip with white left and right (the recognizer drops a letter touching the crop edge), recognize it, strip whitespace; empty text or confidence below 0.5 becomes `None`.
+- Parameters in a frozen `LabelParams`.
+- Known limits on the samples: long sentence labels ("did not analyze the contract…") come out garbled, and boxes whose label is on their left (the utilities table) read `None` or a stray glyph.
 - Built and warmed up once in `lifespan` on a blank strip, because RapidOCR loads models lazily on first call. Its thread setting is forced to `onnx_threads` (its default is all cores).
 - `TODO(prod)`: labels to the left of the box, and the question of the row.
 
@@ -509,7 +514,7 @@ Fakes: only to force a failure the real code can't produce on demand (the 500 pa
 | `log_level` | `"INFO"` |
 | `static_dir` | unset (no frontend mount); `/app/static` in the Docker image |
 
-Stage tuning parameters are **not** settings. They live in frozen dataclasses next to their code (`OpenCVParams`, `YoloxParams`, `FillParams`, `StateCnnParams`).
+Stage tuning parameters are **not** settings. They live in frozen dataclasses next to their code (`OpenCVParams`, `YoloxParams`, `FillParams`, `StateCnnParams`, `LabelParams`).
 
 ## 11. Tooling and code conventions
 
