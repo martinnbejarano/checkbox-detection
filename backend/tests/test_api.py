@@ -36,9 +36,10 @@ def test_detect_returns_empty_and_checked_box() -> None:
 
     assert response.status_code == 200
     boxes = response.json()["boxes"]
-    assert [b.keys() for b in boxes] == [{"bbox", "is_checked", "page"}] * 2
+    assert [b.keys() for b in boxes] == [{"bbox", "is_checked", "page", "score"}] * 2
     assert [b["is_checked"] for b in boxes] == [False, True]
     assert [b["page"] for b in boxes] == [0, 0]
+    assert [b["score"] for b in boxes] == [1.0, 1.0]  # the OpenCV locator has no confidence
     for box, expected in zip(boxes, ([200, 400, 250, 450], [600, 400, 650, 450]), strict=True):
         assert np.allclose(box["bbox"], expected, atol=3)
 
@@ -170,3 +171,20 @@ def test_each_request_logs_one_json_line_with_timings(capsys: pytest.CaptureFixt
     assert entry["n_boxes"] == 2
     for key in ("total_ms", "decode_ms", "detect_ms", "label_ms"):
         assert entry[key] >= 0
+
+
+def test_static_dir_serves_page_without_shadowing_api(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text("<p>demo</p>")
+    with TestClient(create_app(Settings(static_dir=tmp_path))) as client:
+        page = client.get("/")
+        health = client.get("/health")
+
+    assert page.text == "<p>demo</p>"
+    assert health.json() == {"status": "ok"}
+
+
+def test_no_static_dir_means_no_page() -> None:
+    with TestClient(create_app(Settings())) as client:
+        response = client.get("/")
+
+    assert response.status_code == 404

@@ -31,8 +31,8 @@ What makes the work good, in priority order:
 ```json
 {
   "boxes": [
-    { "bbox": [x1, y1, x2, y2], "is_checked": true,  "page": 0 },
-    { "bbox": [x1, y1, x2, y2], "is_checked": false, "page": 0 }
+    { "bbox": [x1, y1, x2, y2], "is_checked": true,  "page": 0, "score": 0.91 },
+    { "bbox": [x1, y1, x2, y2], "is_checked": false, "page": 0, "score": 0.34 }
   ]
 }
 ```
@@ -40,11 +40,12 @@ What makes the work good, in priority order:
 With `?labels=true`:
 
 ```json
-{ "boxes": [ { "bbox": [x1, y1, x2, y2], "is_checked": true, "page": 0, "label": "Urban" } ] }
+{ "boxes": [ { "bbox": [x1, y1, x2, y2], "is_checked": true, "page": 0, "score": 0.91, "label": "Urban" } ] }
 ```
 
 - `bbox`: integer pixel coordinates of the top-left and bottom-right corners, in the **upright** image (after EXIF rotation is applied). For PDFs, coordinates refer to the page rendered at 300 DPI.
 - `page`: 0-based page index. It is always `0` for images. This field extends the challenge contract without breaking it: a client that ignores `page` still gets the exact challenge shape. ([multi-page ticket](https://github.com/martinnbejarano/checkbox-detection/issues/8))
+- `score`: the locator's confidence that the box is a checkbox, in [0, 1] (stage 1, `Rect.score`). YOLOX gives objectness × class probability; the OpenCV locator has no confidence and always returns `1.0`. The demo page flags low-confidence boxes with it. Like `page`, it is an extra field: a client that ignores it still gets the challenge shape.
 - `label`: present only when `labels=true`. The text OCR'd from the strip right of the box (section 6, stage 3), or `null` when nothing is read. Like `page`, it extends the contract without breaking it.
 - Box order: by page, then top to bottom, then left to right. A stable order makes the golden tests and diffs readable.
 - If nothing is found, the response is `200` with `{"boxes": []}`. An empty result is not an error.
