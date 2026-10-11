@@ -44,9 +44,9 @@ class YoloxParams:
 
 
 class YoloxLocator:
-    def __init__(self, models_dir: Path, threads: int, params: YoloxParams | None = None) -> None:
+    def __init__(self, models_dir: Path, threads: int) -> None:
         self.session = load_session(models_dir / MODEL_FILE, threads)
-        self.params = params or YoloxParams()
+        self.params = YoloxParams()
 
     def locate(self, image: np.ndarray) -> list[Rect]:
         # Red watermarks and blue cell fills turned white, as for the OpenCV locator; the model

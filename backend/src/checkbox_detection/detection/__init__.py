@@ -31,15 +31,15 @@ class Pipeline:
     classifier: StateClassifier
     labeler: RapidOcrLabeler
 
-    def run(self, image: np.ndarray, labels: bool = False) -> list[Box]:
+    def run(self, image: np.ndarray) -> list[Box]:
         rects = self.locator.locate(image)
         states = self.classifier.classify(image, rects)
-        boxes = sort_reading_order([Box(r, c, s) for r, (c, s) in zip(rects, states, strict=True)])
+        return sort_reading_order([Box(r, c, s) for r, (c, s) in zip(rects, states, strict=True)])
 
-        if labels:
-            texts = self.labeler.label(image, [b.rect for b in boxes])
-            boxes = [replace(b, label=t) for b, t in zip(boxes, texts, strict=True)]
-        return boxes
+    def label(self, image: np.ndarray, boxes: list[Box]) -> list[Box]:
+        """Stage 3, separate from `run` so callers can time it and skip it when not asked for."""
+        texts = self.labeler.label(image, [b.rect for b in boxes])
+        return [replace(b, label=t) for b, t in zip(boxes, texts, strict=True)]
 
 
 # Each constructor takes (models_dir, onnx_threads); the ONNX stages use them.
@@ -61,5 +61,5 @@ def build_pipeline(locator: str, classifier: str, models_dir: Path, threads: int
     return Pipeline(
         LOCATORS[locator](models_dir, threads),
         CLASSIFIERS[classifier](models_dir, threads),
-        RapidOcrLabeler(),
+        RapidOcrLabeler(threads),
     )

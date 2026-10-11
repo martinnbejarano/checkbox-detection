@@ -9,11 +9,15 @@ class BoxOut(BaseModel):
     bbox: tuple[int, int, int, int]
     is_checked: bool
     page: int
+    label: str | None = None  # serialized only when set: see the `/detect` route
 
     @classmethod
-    def from_box(cls, box: Box, page: int) -> "BoxOut":
+    def from_box(cls, box: Box, page: int, labels: bool = False) -> "BoxOut":
         r = box.rect
-        return cls(bbox=(r.x1, r.y1, r.x2, r.y2), is_checked=box.is_checked, page=page)
+        out = cls(bbox=(r.x1, r.y1, r.x2, r.y2), is_checked=box.is_checked, page=page)
+        if labels:
+            out.label = box.label
+        return out
 
 
 class DetectResponse(BaseModel):
