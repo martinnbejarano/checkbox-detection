@@ -36,6 +36,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["scripts"]  # test_evaluate.py imports evaluate.py
 
 [dependency-groups]
 dev = [
