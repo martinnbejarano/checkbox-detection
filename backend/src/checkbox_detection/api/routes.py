@@ -18,9 +18,13 @@ def get_pipeline(request: Request) -> Pipeline:
     return pipeline
 
 
-@router.post("/detect")
+# Unset fields are left out, so `label` appears only when labels were asked for.
+@router.post("/detect", response_model_exclude_unset=True)
 def detect(
-    request: Request, file: UploadFile, pipeline: Annotated[Pipeline, Depends(get_pipeline)]
+    request: Request,
+    file: UploadFile,
+    pipeline: Annotated[Pipeline, Depends(get_pipeline)],
+    labels: bool = False,
 ) -> DetectResponse:
 
     settings: Settings = request.app.state.settings
@@ -32,11 +36,20 @@ def detect(
     start = perf_counter()
     pages = load_pages(data, settings)
     decoded = perf_counter()
-    boxes = [BoxOut.from_box(box, page.index) for page in pages for box in pipeline.run(page.image)]
+    boxes: list[BoxOut] = []
+    label_s = 0.0
+    for page in pages:
+        page_boxes = pipeline.run(page.image)
+        if labels:
+            labeled = perf_counter()
+            page_boxes = pipeline.label(page.image, page_boxes)
+            label_s += perf_counter() - labeled
+        boxes += [BoxOut.from_box(box, page.index, labels) for box in page_boxes]
     request.state.log_fields = {
         "pages": len(pages),
         "decode_ms": round((decoded - start) * 1000, 1),
-        "detect_ms": round((perf_counter() - decoded) * 1000, 1),
+        "detect_ms": round((perf_counter() - decoded - label_s) * 1000, 1),
+        "label_ms": round(label_s * 1000, 1),
         "n_boxes": len(boxes),
     }
     return DetectResponse(boxes=boxes)

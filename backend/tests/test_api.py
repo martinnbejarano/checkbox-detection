@@ -19,9 +19,10 @@ def png_bytes(image: np.ndarray) -> bytes:
     return buf.tobytes()
 
 
-def two_box_page() -> bytes:
-    """A white page with an empty box on the left and an X box on the right."""
+def two_box_page(label: str = "") -> bytes:
+    """A white page: an empty box on the left with `label` right of it, an X box on the right."""
     page = np.full((1000, 1000), 255, np.uint8)
+    cv2.putText(page, label, (265, 440), cv2.FONT_HERSHEY_SIMPLEX, 1.5, 0, 3)
     cv2.rectangle(page, (200, 400), (250, 450), 0, 3)
     cv2.rectangle(page, (600, 400), (650, 450), 0, 3)
     cv2.line(page, (608, 408), (642, 442), 0, 4)
@@ -40,6 +41,16 @@ def test_detect_returns_empty_and_checked_box() -> None:
     assert [b["page"] for b in boxes] == [0, 0]
     for box, expected in zip(boxes, ([200, 400, 250, 450], [600, 400, 650, 450]), strict=True):
         assert np.allclose(box["bbox"], expected, atol=3)
+
+
+def test_labels_true_adds_label_to_each_box() -> None:
+    with TestClient(create_app(Settings())) as client:
+        response = client.post(
+            "/detect?labels=true", files={"file": ("page.png", two_box_page("Urban"))}
+        )
+
+    assert response.status_code == 200
+    assert [b["label"] for b in response.json()["boxes"]] == ["Urban", None]
 
 
 def test_health_is_ok_after_startup() -> None:
@@ -157,5 +168,5 @@ def test_each_request_logs_one_json_line_with_timings(capsys: pytest.CaptureFixt
     assert entry["status"] == 200
     assert entry["pages"] == 1
     assert entry["n_boxes"] == 2
-    for key in ("total_ms", "decode_ms", "detect_ms"):
+    for key in ("total_ms", "decode_ms", "detect_ms", "label_ms"):
         assert entry[key] >= 0
