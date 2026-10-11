@@ -1,0 +1,11 @@
+{
+  "image": "backend/tests/data/external/external-03.jpg",
+  "boxes": [
+    {"bbox": [537, 185, 559, 207], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [423, 409, 445, 431], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [541, 746, 563, 768], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [421, 747, 443, 769], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [535, 407, 557, 429], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [417, 187, 439, 209], "is_checked": false, "label": null, "tags": []}
+  ]
+}
