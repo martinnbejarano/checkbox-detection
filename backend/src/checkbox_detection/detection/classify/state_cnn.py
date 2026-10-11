@@ -24,19 +24,16 @@ class StateCnnParams:
     # px short is still whole. On the samples 0-0.15 classify all but 1-2 boxes right; 0.25 and
     # up pull in label text and neighbouring rules.
     pad_frac: float = 0.05
-    # P(filled) above this is the model's own "filled".
-    threshold: float = 0.5
-    # P(filled) within this distance above the threshold is ambiguous and resolves to unchecked,
-    # to avoid inventing checked boxes. Sample boxes score below 0.1 or above 0.74.
-    ambiguous_margin: float = 0.2
+    # P(filled) above this means checked: the model's own 0.5 plus a 0.2 margin, so an ambiguous
+    # score resolves to unchecked and no checked box is invented. Sample boxes score below 0.1 or
+    # above 0.74.
+    threshold: float = 0.7
 
 
 class StateCnnClassifier:
-    def __init__(
-        self, models_dir: Path, threads: int, params: StateCnnParams | None = None
-    ) -> None:
+    def __init__(self, models_dir: Path, threads: int) -> None:
         self.session = load_session(models_dir / MODEL_FILE, threads)
-        self.params = params or StateCnnParams()
+        self.params = StateCnnParams()
 
     def classify(self, image: np.ndarray, rects: list[Rect]) -> list[tuple[bool, float]]:
         if not rects:
@@ -45,10 +42,8 @@ class StateCnnClassifier:
         crops = np.stack([self._crop(gray, r) for r in rects])[:, None]
         x = (crops.astype(np.float32) / 255 - MEAN) / STD
         logits = self.session.run(None, {self.session.get_inputs()[0].name: x})[0]
-        exp = np.exp(logits - logits.max(1, keepdims=True))  # softmax over (empty, filled)
-        filled = exp[:, 1] / exp.sum(1)
-        threshold = self.params.threshold + self.params.ambiguous_margin
-        return [(bool(p > threshold), float(p)) for p in filled]
+        filled = 1 / (1 + np.exp(logits[:, 0] - logits[:, 1]))  # softmax over (empty, filled)
+        return [(bool(p > self.params.threshold), float(p)) for p in filled]
 
     def _crop(self, gray: np.ndarray, rect: Rect) -> np.ndarray:
         """The padded box, letterboxed into 40x160 on white, centred, aspect kept."""

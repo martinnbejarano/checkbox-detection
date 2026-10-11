@@ -334,8 +334,7 @@ Probe on one M4 thread: 50–270 ms per page. Parameters (tile size, overlap, sc
 - Binarize the page with `binarize.py` **before** line removal.
 - Per rect: shrink inward by `max(border_thickness + 5% of side, 15% of side)`, then compute the ink ratio of the interior.
 - Only ink from strokes that sit mostly inside the box counts (labeling policy, §7). In a crop one side wider than the box, the box edges (straight runs ≥ 80% of the side) are set apart, and each remaining stroke counts only if ≥ 60% of its ink is inside the box. A stray stroke that crosses the box is mostly outside it.
-- Threshold: a fixed `fill_threshold` (0.05). Once stray strokes are dropped, empty boxes on the samples measure about 0 and the faintest mark about 0.11. A per-page split (threshold in the widest gap between the ratios) was tried and dropped: on the cropped sample it split faint X marks from full ones and called the X marks empty.
-- Ambiguous ratios (up to `ambiguous_margin` = 0.02 above the threshold) resolve to **`false`**, following the decision to avoid inventing checked boxes.
+- Threshold: a fixed `fill_threshold` (0.07: 0.05 plus a 0.02 margin, so ambiguous ratios resolve to **`false`**, following the decision to avoid inventing checked boxes). Once stray strokes are dropped, empty boxes on the samples measure about 0 and the faintest mark about 0.11. A per-page split (threshold in the widest gap between the ratios) was tried and dropped: on the cropped sample it split faint X marks from full ones and called the X marks empty.
 - Parameters in a frozen `FillParams`.
 
 ### Stage 2b: CNN state classifier (`classify/state_cnn.py`)
@@ -343,7 +342,7 @@ Probe on one M4 thread: 50–270 ms per page. Parameters (tile size, overlap, sc
 `nutrientdocs/form-field-v1-state`: a 96k-param CNN on 40×160 gray crops that outputs empty / filled. Probe: about 0.2 ms per crop.
 
 - Crop each rect with padding, convert to clean gray (`binarize.to_clean_gray`), letterbox to 40×160, and stack all crops of the page into **one batched** `session.run`.
-- `checked_score` = P(filled). A score within `ambiguous_margin` above `threshold` (`StateCnnParams`, 0.5–0.7) resolves to **`false`**, as for `fill_ratio`. A third "ambiguous" class is not trained.
+- `checked_score` = P(filled). `threshold` (`StateCnnParams`) is 0.7: the model's 0.5 plus a 0.2 margin, so an ambiguous score resolves to **`false`**, as for `fill_ratio`. A third "ambiguous" class is not trained.
 - Known limit: the pretrained model has no stray-stroke handling; a stroke crossing an empty box reads as checked.
 
 ### Stage 3: label (`label.py`)

@@ -62,8 +62,8 @@ class _Candidate:
 
 
 class OpenCVLocator:
-    def __init__(self, params: OpenCVParams | None = None) -> None:
-        self.params = params or OpenCVParams()
+    def __init__(self) -> None:
+        self.params = OpenCVParams()
 
     def locate(self, image: np.ndarray) -> list[Rect]:
         scale = 2 if min(image.shape[:2]) < self.params.upscale_below_px else 1

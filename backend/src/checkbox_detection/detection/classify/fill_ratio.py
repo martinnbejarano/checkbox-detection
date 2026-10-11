@@ -34,21 +34,19 @@ class FillParams:
     # Straight runs at least this share of the side are box edges, set apart from the marks.
     edge_length_frac: float = 0.8
     # Interior ink ratio above this means checked. Empty boxes measure about 0 once stray
-    # strokes are dropped; the faintest real mark on the samples is about 0.11.
-    fill_threshold: float = 0.05
-    # Ratios within this distance above the threshold are ambiguous and resolve to unchecked.
-    ambiguous_margin: float = 0.02
+    # strokes are dropped; the faintest real mark on the samples is about 0.11. 0.05 plus a 0.02
+    # margin, so an ambiguous ratio resolves to unchecked.
+    fill_threshold: float = 0.07
 
 
 class FillRatioClassifier:
-    def __init__(self, params: FillParams | None = None) -> None:
-        self.params = params or FillParams()
+    def __init__(self) -> None:
+        self.params = FillParams()
 
     def classify(self, image: np.ndarray, rects: list[Rect]) -> list[tuple[bool, float]]:
         binary = binarize(to_clean_gray(image))
-        threshold = self.params.fill_threshold + self.params.ambiguous_margin
         ratios = [mark_ratio(binary, rect, self.params) for rect in rects]
-        return [(ratio > threshold, ratio) for ratio in ratios]
+        return [(ratio > self.params.fill_threshold, ratio) for ratio in ratios]
 
 
 def mark_ratio(binary: np.ndarray, rect: Rect, params: FillParams) -> float:

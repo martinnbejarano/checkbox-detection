@@ -16,5 +16,4 @@ def load_session(path: Path, threads: int) -> ort.InferenceSession:
         )
     options = ort.SessionOptions()
     options.intra_op_num_threads = threads
-    options.inter_op_num_threads = 1
     return ort.InferenceSession(str(path), options, providers=["CPUExecutionProvider"])
