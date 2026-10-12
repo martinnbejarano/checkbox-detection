@@ -26,6 +26,7 @@ def test_states_per_mark_class(side: int, to_input: Callable[[np.ndarray], np.nd
     states = FillRatioClassifier().classify(to_input(img), rects)
 
     assert [checked for checked, _ in states] == [False, True, True, True, False]
+    assert states[4][1] == 0.0  # the stray stroke adds no ink, not just less than the threshold
 
 
 def test_watermark_ink_is_not_a_mark() -> None:

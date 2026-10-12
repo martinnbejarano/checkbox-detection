@@ -65,10 +65,11 @@ def mark_ratio(binary: np.ndarray, rect: Rect, params: FillParams) -> float:
     # Strokes without the box's own edges, so a mark and the border are separate components.
     # Where a stroke crossed an edge it lost a few px; only those px are bridged back.
     strokes = remove_lines(crop, int(params.edge_length_frac * side))
-    # A closing fills gaps shorter than its kernel. The gap is about one border wide along the
-    # stroke, twice that where the stroke crosses at a slant; +3 px keeps 1 px borders bridged.
+    # Each stroke takes in the edge ink within about one border of it, which fills the gap where
+    # it crossed the edge. A closing does not: at a shallow angle the gap along the stroke is
+    # longer than the kernel, and the erosion cuts the bridge. +3 px keeps 1 px borders bridged.
     k = 2 * border + 3
-    bridged = cv2.morphologyEx(strokes, cv2.MORPH_CLOSE, np.ones((k, k), np.uint8)) & crop
+    bridged = cv2.dilate(strokes, np.ones((k, k), np.uint8)) & crop
     n, labels = cv2.connectedComponents(bridged)
 
     total = np.bincount(labels[strokes > 0], minlength=n)
