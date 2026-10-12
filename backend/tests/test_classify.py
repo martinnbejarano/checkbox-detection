@@ -70,7 +70,7 @@ def test_cnn_states_per_mark_class(side: int, to_input: Callable[[np.ndarray], n
 def test_cnn_ambiguous_score_is_unchecked() -> None:
     img = blank_page(2550, 3300)
     draw_box(img, 300, 1000, 60, "empty")
-    cv2.rectangle(img, (319, 1019), (340, 1040), 0, -1)  # 22x22 dot: P(filled) about 0.6
+    cv2.rectangle(img, (322, 1021), (337, 1039), 0, -1)  # 16x19 dot: P(filled) about 0.65
 
     states = StateCnnClassifier(MODELS_DIR, 1).classify(img, [Rect(300, 1000, 360, 1060, 1.0)])
 
