@@ -29,8 +29,9 @@ Copy these, not whatever test happens to be nearby:
 | Integration, forced failure (the one allowed fake) | `backend/tests/test_api.py::test_unexpected_failure_is_500_without_stack_trace` |
 | Pure function, parametrized over input classes | `backend/tests/test_imaging.py::test_decodes_allowed_formats_keeping_color` |
 | Unit, one stage with real dependencies, scale grid | `backend/tests/test_locate.py::test_finds_every_mark_class_at_any_scale` |
+| Golden: end-to-end accuracy per combo and sample above a recorded floor | `backend/tests/test_golden.py::test_end_to_end_accuracy_stays_above_floor` |
 
-Update this table when a better exemplar lands (e.g. the first stage-level test and the first golden test).
+Update this table when a better exemplar lands.
 
 ## Where to draw the boundary
 

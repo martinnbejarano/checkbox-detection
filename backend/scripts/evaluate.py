@@ -1,6 +1,6 @@
 """Accuracy and latency of every locator x classifier combo against the ground truth (spec §7).
 
-Prints Markdown tables per combo for "samples (tuned)" and "external (unseen)", then by tag and
+Prints Markdown tables per combo for "samples" and "external (unseen)", then by tag and
 by scale (samples only) and, with --labels, label accuracy (samples only: the external set has
 no labels). Combos whose model files are missing are skipped with a note.
 
@@ -28,7 +28,7 @@ from checkbox_detection.imaging import load_pages
 
 REPO = Path(__file__).resolve().parents[2]  # ground-truth image paths are relative to it
 DATA = REPO / "backend" / "tests" / "data"
-SAMPLES, EXTERNAL = "samples (tuned)", "external (unseen)"
+SAMPLES, EXTERNAL = "samples", "external (unseen)"
 SETS = {SAMPLES: DATA / "ground_truth", EXTERNAL: DATA / "external"}
 MATCH_IOU, LOOSE_IOU = 0.5, 0.3
 
