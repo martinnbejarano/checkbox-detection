@@ -10,8 +10,8 @@ type Line = { d: string; box: [number, number]; row: [number, number]; offscreen
 
 // Keeps the line's end off the pane's very edge when the box is scrolled out of view.
 const EDGE = 12
-// The active box's focus ring (.box[data-active] box-shadow), so the line starts outside it.
-const RING = 5
+// The pencil circle around the active box (.box[data-active]::before), so the line starts outside it.
+const RING = 8
 // How far above the box the line turns toward the list. Leaving from the top keeps the
 // line off the label, which sits to the right of the box on the same form row.
 const LIFT = 2

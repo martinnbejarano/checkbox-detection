@@ -94,6 +94,9 @@ export function Workspace({ file, onUpload }: Props) {
   const items: Item[] = (result?.boxes ?? [])
     .map((box, id) => ({ id, box, uncertain: box.score < LOW_CONFIDENCE }))
     .filter((item) => item.box.page === pageIndex)
+  const checkedCount = items.filter((item) => item.box.is_checked).length
+  const queryCount = items.filter((item) => item.uncertain).length
+  const focused = items.find((item) => item.id === active)
 
   const goToPage = (index: number) => {
     setActive(null)
@@ -171,21 +174,21 @@ export function Workspace({ file, onUpload }: Props) {
           </button>
         </div>
         <div className="viewer-canvas" ref={viewer}>
-          {page ? (
-            <DocumentView
-              page={page}
-              // Until the new page has rendered, the old one shows without boxes rather than with the wrong ones.
-              items={page.index === pageIndex ? items : []}
-              active={active}
-              scanning={!result && !error}
-              onHover={hoverBox}
-            />
-          ) : previewFailed ? (
+          {previewFailed && !page ? (
             <p className="viewer-note">
               Your browser can't preview this file.{!error && ' The detections are still listed on the right.'}
             </p>
           ) : (
-            <div className="sheet placeholder" aria-hidden="true" />
+            // Rendered before the page exists too, so the sheet is one element from the first frame
+            // (the upload's view transition morphs into it and must not see it replaced).
+            <DocumentView
+              page={page}
+              // Until the new page has rendered, the old one shows without boxes rather than with the wrong ones.
+              items={page?.index === pageIndex ? items : []}
+              active={active}
+              scanning={!result && !error}
+              onHover={hoverBox}
+            />
           )}
         </div>
       </section>
@@ -196,6 +199,13 @@ export function Workspace({ file, onUpload }: Props) {
           {result && <span className="count">{items.length}</span>}
           {pageCount > 1 && <span className="muted">on page {pageIndex + 1}</span>}
         </div>
+        {result && items.length > 0 && (
+          <p className="tally">
+            <span>{checkedCount} checked</span>
+            <span>{items.length - checkedCount} unchecked</span>
+            {queryCount > 0 && <span className="tally-query">{queryCount} to check by eye</span>}
+          </p>
+        )}
         <div className="panel-body">
           {error ? (
             <div className="panel-note error" role="alert">
@@ -211,6 +221,24 @@ export function Workspace({ file, onUpload }: Props) {
             <DetectionsSkeleton />
           )}
         </div>
+        {result && items.length > 0 && (
+          <p className="slip">
+            {focused ? (
+              <>
+                <span className="slip-no">No. {items.indexOf(focused) + 1}</span>
+                <span>
+                  x {focused.box.bbox[0]} · y {focused.box.bbox[1]}
+                </span>
+                <span>
+                  {focused.box.bbox[2] - focused.box.bbox[0]} × {focused.box.bbox[3] - focused.box.bbox[1]} px
+                </span>
+                <span>Confidence {focused.box.score.toFixed(2)}</span>
+              </>
+            ) : (
+              <span className="muted">Select a detection to read its position and confidence.</span>
+            )}
+          </p>
+        )}
       </aside>
 
       <Connector active={active} stage={stage} viewer={viewer} />
