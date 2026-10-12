@@ -1,0 +1,25 @@
+{
+  "image": "samples/sample-009.png",
+  "boxes": [
+    {"bbox": [470, 652, 511, 693], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [612, 652, 653, 693], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [2081, 652, 2122, 693], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2291, 652, 2332, 693], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [470, 699, 511, 740], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [612, 699, 653, 740], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2081, 699, 2122, 740], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2291, 699, 2332, 740], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [470, 747, 511, 788], "is_checked": false, "label": "No", "tags": []},
+    {"bbox": [612, 747, 653, 788], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2081, 747, 2122, 788], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2291, 747, 2332, 788], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [470, 794, 511, 835], "is_checked": false, "label": "No", "tags": []},
+    {"bbox": [612, 794, 653, 835], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2081, 794, 2122, 835], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2291, 794, 2332, 835], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2081, 842, 2122, 883], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [2291, 842, 2332, 883], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2081, 889, 2122, 930], "is_checked": true, "label": null, "tags": []},
+    {"bbox": [2291, 889, 2332, 930], "is_checked": false, "label": null, "tags": []}
+  ]
+}

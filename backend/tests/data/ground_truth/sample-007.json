@@ -1,0 +1,19 @@
+{
+  "image": "samples/sample-007.png",
+  "boxes": [
+    {"bbox": [311, 2595, 349, 2633], "is_checked": false, "label": "REPRODUCTION OR", "tags": []},
+    {"bbox": [648, 2595, 685, 2633], "is_checked": true, "label": "REPLACEMENT COST NEW", "tags": []},
+    {"bbox": [1103, 3225, 1141, 3262], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [1234, 3225, 1271, 3262], "is_checked": false, "label": "No", "tags": []},
+    {"bbox": [1558, 3225, 1596, 3262], "is_checked": false, "label": "Detached", "tags": []},
+    {"bbox": [1768, 3225, 1806, 3262], "is_checked": false, "label": "Attached", "tags": []},
+    {"bbox": [1162, 3462, 1200, 3500], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [1293, 3462, 1331, 3500], "is_checked": false, "label": "No", "tags": []},
+    {"bbox": [826, 3510, 863, 3547], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [956, 3510, 994, 3547], "is_checked": false, "label": "No", "tags": []},
+    {"bbox": [1063, 3557, 1101, 3595], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [1194, 3557, 1232, 3595], "is_checked": false, "label": "No", "tags": []},
+    {"bbox": [1103, 3700, 1141, 3737], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [1234, 3700, 1271, 3737], "is_checked": false, "label": "No", "tags": []}
+  ]
+}

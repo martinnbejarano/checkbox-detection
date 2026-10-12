@@ -1,0 +1,21 @@
+{
+  "image": "samples/sample-011.png",
+  "boxes": [
+    {"bbox": [862, 1919, 899, 1955], "is_checked": false, "label": "+", "tags": []},
+    {"bbox": [981, 1919, 1017, 1955], "is_checked": true, "label": "-", "tags": []},
+    {"bbox": [1409, 1919, 1445, 1955], "is_checked": false, "label": "+", "tags": []},
+    {"bbox": [1527, 1919, 1564, 1955], "is_checked": false, "label": "-", "tags": []},
+    {"bbox": [1955, 1919, 1991, 1955], "is_checked": true, "label": "+", "tags": []},
+    {"bbox": [2074, 1919, 2110, 1956], "is_checked": false, "label": "-", "tags": []},
+    {"bbox": [162, 2062, 198, 2098], "is_checked": true, "label": "did", "tags": []},
+    {"bbox": [281, 2062, 317, 2098], "is_checked": false, "label": "did not research the sale or transfer history of the subject property and comparable sales", "tags": []},
+    {"bbox": [316, 2204, 352, 2241], "is_checked": false, "label": "did", "tags": []},
+    {"bbox": [435, 2204, 471, 2241], "is_checked": true, "label": "did not reveal any prior sales or transfers of the subject property for the three years prior to the effective date of this appraisal.", "tags": []},
+    {"bbox": [316, 2299, 352, 2336], "is_checked": false, "label": "did", "tags": []},
+    {"bbox": [435, 2299, 471, 2336], "is_checked": true, "label": "did not reveal any prior sales or transfers of the comparable sales for the year prior to the date of sale of the comparable sale.", "tags": []},
+    {"bbox": [435, 3586, 471, 3622], "is_checked": true, "label": "\"as is\",", "tags": []},
+    {"bbox": [617, 3586, 653, 3622], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [296, 3629, 333, 3666], "is_checked": false, "label": null, "tags": []},
+    {"bbox": [2188, 3629, 2225, 3666], "is_checked": false, "label": "subject to the", "tags": []}
+  ]
+}

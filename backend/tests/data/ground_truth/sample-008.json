@@ -1,0 +1,10 @@
+{
+  "image": "samples/sample-008.png",
+  "boxes": [
+    {"bbox": [1297, 3205, 1334, 3243], "is_checked": false, "label": "Did not inspect subject property", "tags": []},
+    {"bbox": [1297, 3257, 1334, 3294], "is_checked": false, "label": "Did inspect exterior of subject property from street", "tags": []},
+    {"bbox": [1297, 3359, 1334, 3397], "is_checked": true, "label": "Did inspect interior and exterior of subject property", "tags": []},
+    {"bbox": [1297, 3605, 1334, 3642], "is_checked": false, "label": "Did not inspect exterior of comparable sales from street", "tags": []},
+    {"bbox": [1297, 3660, 1334, 3698], "is_checked": false, "label": "Did inspect exterior of comparable sales from street", "tags": []}
+  ]
+}

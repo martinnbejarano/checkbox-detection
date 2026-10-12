@@ -1,0 +1,23 @@
+{
+  "image": "samples/sample-006.png",
+  "boxes": [
+    {"bbox": [525, 878, 562, 915], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [644, 878, 681, 915], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [830, 878, 867, 915], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [948, 878, 986, 915], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [1376, 878, 1413, 915], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [1495, 878, 1532, 915], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [1922, 878, 1960, 915], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [2041, 878, 2078, 915], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [897, 2350, 934, 2388], "is_checked": true, "label": "+", "tags": []},
+    {"bbox": [992, 2350, 1029, 2388], "is_checked": false, "label": "–", "tags": []},
+    {"bbox": [1443, 2350, 1481, 2388], "is_checked": false, "label": "+", "tags": []},
+    {"bbox": [1538, 2350, 1576, 2388], "is_checked": true, "label": "–", "tags": []},
+    {"bbox": [1989, 2350, 2027, 2388], "is_checked": false, "label": "+", "tags": []},
+    {"bbox": [2084, 2350, 2122, 2388], "is_checked": true, "label": "–", "tags": []},
+    {"bbox": [438, 3585, 475, 3623], "is_checked": true, "label": "''as is'',", "tags": []},
+    {"bbox": [620, 3585, 657, 3623], "is_checked": false, "label": "subject to completion per plans and specifications on the basis of a hypothetical condition that the improvements have been", "tags": []},
+    {"bbox": [299, 3629, 337, 3666], "is_checked": false, "label": "subject to the following repairs or alterations on the basis of a hypothetical condition that the repairs or alterations have been completed, or", "tags": []},
+    {"bbox": [2191, 3629, 2229, 3666], "is_checked": false, "label": "subject to the", "tags": []}
+  ]
+}

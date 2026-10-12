@@ -1,0 +1,11 @@
+{
+  "image": "samples/sample-012.png",
+  "boxes": [
+    {"bbox": [862, 1820, 899, 1857], "is_checked": true, "label": "+", "tags": []},
+    {"bbox": [981, 1820, 1017, 1857], "is_checked": false, "label": "-", "tags": []},
+    {"bbox": [1409, 1820, 1445, 1857], "is_checked": false, "label": "+", "tags": []},
+    {"bbox": [1527, 1820, 1564, 1857], "is_checked": true, "label": "-", "tags": []},
+    {"bbox": [1955, 1820, 1991, 1857], "is_checked": false, "label": "+", "tags": []},
+    {"bbox": [2074, 1820, 2110, 1857], "is_checked": false, "label": "-", "tags": []}
+  ]
+}
