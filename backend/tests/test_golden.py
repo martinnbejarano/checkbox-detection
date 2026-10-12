@@ -1,6 +1,7 @@
 """Golden tests: end-to-end accuracy of each (locator, classifier) combo on each sample stays at
 or above the floor recorded after tuning (spec §8). The samples are evaluation only; nothing was
-tuned on them.
+tuned on them. The `-rotN` samples are tilted N degrees and straightened by stage 0; the `-rot90`
+ones wait for quarter turns (#45).
 
 A floor is the accuracy measured after tuning minus about one box, so a real regression fails
 while a one-box wobble does not. Re-record a floor only with the `make eval` tables in the PR.
@@ -28,24 +29,40 @@ FLOORS: dict[tuple[str, str], dict[str, float]] = {
         "sample-001": 90.6,
         "sample-002": 87.5,
         "sample-003": 97.4,
+        "sample-000-rot3": 98.3,
+        "sample-001-rot2": 76.7,
+        "sample-002-rot4": 87.5,
+        "sample-003-rot5": 97.4,
     },
     ("opencv", "cnn"): {
         "sample-000": 99.1,
         "sample-001": 90.6,
         "sample-002": 87.5,
         "sample-003": 97.4,
+        "sample-000-rot3": 98.3,
+        "sample-001-rot2": 76.7,
+        "sample-002-rot4": 87.5,
+        "sample-003-rot5": 97.4,
     },
     ("yolox", "fill_ratio"): {
         "sample-000": 99.1,
         "sample-001": 95.3,
         "sample-002": 97.9,
         "sample-003": 96.2,
+        "sample-000-rot3": 96.6,
+        "sample-001-rot2": 95.3,
+        "sample-002-rot4": 97.9,
+        "sample-003-rot5": 92.4,
     },
     ("yolox", "cnn"): {
         "sample-000": 99.1,
         "sample-001": 95.3,
         "sample-002": 97.9,
         "sample-003": 96.2,
+        "sample-000-rot3": 97.4,
+        "sample-001-rot2": 95.3,
+        "sample-002-rot4": 97.9,
+        "sample-003-rot5": 98.7,
     },
 }
 

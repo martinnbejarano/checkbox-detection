@@ -1,4 +1,7 @@
-from checkbox_detection.detection.geometry import nms, sort_reading_order, tile_windows
+import numpy as np
+import pytest
+
+from checkbox_detection.detection.geometry import map_rect, nms, sort_reading_order, tile_windows
 from checkbox_detection.detection.types import Box, Rect
 
 
@@ -35,3 +38,23 @@ def test_tile_windows_cover_the_page_with_overlap() -> None:
 
 def test_tile_windows_on_a_page_smaller_than_a_tile_is_the_page() -> None:
     assert tile_windows(900, 700, tile=1280, overlap=200) == [(0, 0, 900, 700)]
+
+
+@pytest.mark.parametrize(
+    ("rect", "matrix", "expected"),
+    [
+        # Quarter turn: x' = 1000 - y, y' = x.
+        (Rect(100, 200, 150, 260, 0.9), [[0, -1, 1000], [1, 0, 0]], Rect(740, 100, 800, 150, 0.9)),
+        # 30° tilt: the corners land at x -13.4..123.2, y 136.6..273.2; clamped to 1000 x 250.
+        (
+            Rect(100, 100, 200, 200, 0.9),
+            [[0.866, -0.5, 0], [0.5, 0.866, 0]],
+            Rect(0, 137, 123, 250, 0.9),
+        ),
+    ],
+    ids=["quarter-turn", "tilt-clamped"],
+)
+def test_map_rect_is_the_box_around_the_mapped_corners(
+    rect: Rect, matrix: list[list[float]], expected: Rect
+) -> None:
+    assert map_rect(rect, np.array(matrix), width=1000, height=250) == expected
