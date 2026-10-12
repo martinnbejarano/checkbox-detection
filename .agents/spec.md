@@ -88,7 +88,7 @@ api/routes.py ── reads bytes, enforces body limit, reads ?labels
 imaging/  ───── bytes → list[Page]      (sniff format, decode or rasterize, validate, EXIF, keep native gray/color)
    │
    ▼
-detection/ ──── Pipeline.straighten(page) → Upright, then run / label on it, then boxes back to the original   (pure NumPy/OpenCV/onnxruntime; no FastAPI, no I/O)
+detection/ ──── Pipeline.detect(page, labels) → list[Box]: stage 0, clean gray, stages 1-3, boxes back to the original   (pure NumPy/OpenCV/onnxruntime; no FastAPI, no I/O)
    │              0. straighten(page)                  → Upright             turn the page upright (§6 stage 0)
    │              1. Locator.locate(page)              → list[Rect]          where are the boxes
    │              2. StateClassifier.classify(page, …) → list[(bool, score)] is each one checked
@@ -115,22 +115,24 @@ class Pipeline:
     classifier: StateClassifier
     labeler: RapidOcrLabeler
 
-    def run(self, image: np.ndarray) -> list[Box]:
-        rects = self.locator.locate(image)
-        states = self.classifier.classify(image, rects)
-        return sort_reading_order([Box(r, c, s) for r, (c, s) in zip(rects, states, strict=True)])
-
-    def label(self, image: np.ndarray, boxes: list[Box]) -> list[Box]:
-        texts = self.labeler.label(image, [b.rect for b in boxes])
-        return [replace(b, label=t) for b, t in zip(boxes, texts, strict=True)]
+    def detect(self, image: np.ndarray, labels: bool = False) -> tuple[list[Box], float]:
+        upright = self.straighten(image)
+        page = to_clean_gray(upright.image)  # once for stages 1-3; after deskew's interpolation
+        rects = self.locator.locate(page)
+        states = self.classifier.classify(page, rects)
+        boxes = sort_reading_order([Box(r, c) for r, (c, _) in zip(rects, states, strict=True)])
+        label_s = 0.0
+        if labels:
+            ...  # timed: texts = self.labeler.label(page, [b.rect for b in boxes])
+        return upright.boxes_to_original(boxes), label_s
 ```
 
-- `label` is a separate method so the route can skip it and log its time as `label_ms`.
-
-- `run()` makes three named calls, so the stage order is visible in one place. A generic list of stages (docling's `build_pipe`) would hide it.
+- `detect` is the one entry point: the route and every script call it, so a new stage is added in one place.
+- It also returns the seconds stage 3 took, so the route logs `label_ms` apart from `detect_ms`.
+- `detect()` makes the named calls itself, so the stage order is visible in one place. A generic list of stages (docling's `build_pipe`) would hide it.
 - `Locator` and `StateClassifier` are `typing.Protocol`s because each has two implementations chosen by config. Test fakes need no inheritance.
 - The labeler has one implementation, so it is a concrete class with no Protocol.
-- Input: one page as a `uint8` array, **grayscale (H×W)** or **RGB (H×W×3)**, whichever the source had. Each stage decides how to preprocess it.
+- Input: one page as a `uint8` array, **grayscale (H×W)** or **RGB (H×W×3)**, whichever the source had. `detect` turns the upright page into clean gray (`binarize.to_clean_gray`) once for stages 1-3; each stage still accepts either, and does the same conversion when called on its own.
 - Output: boxes in that page's pixel coordinates. The API adds `page`.
 - Implementations are chosen at startup by `CHECKBOX_LOCATOR` and `CHECKBOX_CLASSIFIER`. Two plain dicts in `detection/__init__.py` map names to constructors; an unknown name raises `ValueError` listing the choices. `scripts/evaluate.py` loops over the same dicts to compare combinations. There is no plugin registry.
 
@@ -148,7 +150,6 @@ class Rect:  # output of stage 1, input of stages 2 and 3
 class Box:  # what the API serializes
     rect: Rect
     is_checked: bool
-    checked_score: float  # P(checked) for the CNN, interior ink ratio for fill_ratio; internal (used by evaluate.py)
     label: str | None = None  # filled only when labels were requested
 ```
 
@@ -330,18 +331,9 @@ class Upright:
     def boxes_to_original(self, boxes: list[Box]) -> list[Box]: ...
 ```
 
-Callers (`routes.detect`, `scripts/evaluate.py`):
+`Pipeline.detect` straightens the page, runs stages 1-3 on `upright.image`, and maps the boxes back with `upright.boxes_to_original`. `straighten` stays a public method so stage 0 can be tested alone.
 
-```python
-upright = pipeline.straighten(page.image)
-boxes = pipeline.run(upright.image)
-if labels:
-    boxes = pipeline.label(upright.image, boxes)
-boxes = upright.boxes_to_original(boxes)
-```
-
-- `straighten` is a separate call, like `label`, so `run` and `label` keep their signatures and `label` reads the same straightened image without straightening twice.
-- A box goes back as the axis-aligned box around its 4 mapped corners, clamped to the page (the ground truth of the tilted samples is drawn the same way). The order from `run` is kept: reading order is decided on the upright page.
+- A box goes back as the axis-aligned box around its 4 mapped corners, clamped to the page (the ground truth of the tilted samples is drawn the same way). The order from stage 1-2 is kept: reading order is decided on the upright page.
 - The steps compose into one matrix, in this order: **quarter turn → deskew → upside down**. Upside-down detection on a page that is still tilted misfires (53–60% "180" votes on upright tilted pages), so it runs after deskew.
 
 **Deskew** (`deskew.py`, `DeskewParams`, ticket 44): projection profile.
@@ -404,7 +396,7 @@ Probe on one M4 thread: 50–270 ms per page. Parameters (tile size, overlap, sc
 `nutrientdocs/form-field-v1-state`, fine-tuned: a 96k-param CNN on 40×160 gray crops that outputs empty / filled. Probe: about 0.2 ms per crop.
 
 - Crop each rect with padding, convert to clean gray (`binarize.to_clean_gray`), letterbox to 40×160, and stack all crops of the page into **one batched** `session.run`.
-- `checked_score` = P(filled). `threshold` (`StateCnnParams`) is 0.7: the model's 0.5 plus a 0.2 margin, so an ambiguous score resolves to **`false`**, as for `fill_ratio`. A third "ambiguous" class is not trained.
+- The score is P(filled). `threshold` (`StateCnnParams`) is 0.7: the model's 0.5 plus a 0.2 margin, so an ambiguous score resolves to **`false`**, as for `fill_ratio`. A third "ambiguous" class is not trained.
 - Known limit: no stray-stroke handling; a stroke crossing an empty box reads as checked. On the external set the fine-tuned model marks no empty box checked, but misses large pen strokes drawn mostly outside a small box (35 of 419 boxes), which the third party labelled checked and the labeling policy does not.
 
 ### Stage 3: label (`label.py`)

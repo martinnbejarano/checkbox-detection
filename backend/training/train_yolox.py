@@ -39,7 +39,12 @@ from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead
 from yolox.utils import ModelEMA
 
 from checkbox_detection.detection.binarize import to_clean_gray
-from checkbox_detection.detection.locate.yolox import INPUT, PAD, YoloxLocator
+from checkbox_detection.detection.locate.yolox import (
+    CHOICE_BUTTON,
+    INPUT,
+    YoloxLocator,
+    letterbox,
+)
 from checkbox_detection.detection.onnx import load_session
 
 # YOLOX casts with tensor.type(x.type()), and PyTorch has no "torch.mps.FloatTensor" type string.
@@ -57,7 +62,6 @@ torch.Tensor.type = _mps_aware_type  # type: ignore[method-assign]
 PRETRAINED_ONNX = MODELS / "form-field-v1-nano.onnx"
 OUT_ONNX = MODELS / "form-field-v1-nano-tuned.onnx"
 CKPT_URL = "https://huggingface.co/nutrientdocs/form-field-v1-nano/resolve/7cbc1ecd55d59f6315a1415dddc59c3c8b115f05/best_ckpt.pth"
-CHOICE_BUTTON = 1
 
 # Tile side as a share of the page width: around the service's 0.6, wide enough that the model
 # also learns the box sizes a different tile_frac would show it.
@@ -107,10 +111,8 @@ class Tiles(torch.utils.data.Dataset[tuple[torch.Tensor, torch.Tensor]]):
             x0, y0 = rng.randint(0, max(0, w - side)), rng.randint(0, max(0, h - side))
         x0, y0 = min(max(0, x0), max(0, w - side)), min(max(0, y0), max(0, h - side))
         tile = gray[y0 : y0 + side, x0 : x0 + side]
-        scale = INPUT / max(tile.shape)
+        canvas, scale = letterbox(tile)
         size = (round(tile.shape[1] * scale), round(tile.shape[0] * scale))
-        canvas = np.full((INPUT, INPUT), PAD, np.uint8)
-        canvas[: size[1], : size[0]] = cv2.resize(tile, size, interpolation=cv2.INTER_AREA)
         canvas = scan_augment(canvas, size, rng)
 
         targets = np.zeros((MAX_LABELS, 5), np.float32)

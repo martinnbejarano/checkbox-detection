@@ -18,7 +18,7 @@ def test_nms_keeps_the_outer_of_nested_duplicates() -> None:
 
 def test_reading_order_groups_skewed_rows() -> None:
     def box(x: int, y: int) -> Box:
-        return Box(Rect(x, y, x + 40, y + 40, 1.0), False, 0.0)
+        return Box(Rect(x, y, x + 40, y + 40, 1.0), False)
 
     # Row 1 slopes down to the left by a few px, so a plain (y, x) sort would put c first.
     a, b, c = box(100, 206), box(300, 203), box(500, 200)
@@ -73,5 +73,5 @@ def test_quarter_turn_tilt_and_half_turn_compose_back_to_the_original() -> None:
 
     # Corners (400, 500) -> (810, 520), (440, 500) -> (786, 552), (400, 520) -> (794, 508),
     # (440, 520) -> (770, 540): half turn first, then the tilt, then the quarter turn.
-    box = Box(Rect(400, 500, 440, 520, 0.9), True, 0.8)
-    assert upright.boxes_to_original([box]) == [Box(Rect(770, 508, 810, 552, 0.9), True, 0.8)]
+    box = Box(Rect(400, 500, 440, 520, 0.9), True)
+    assert upright.boxes_to_original([box]) == [Box(Rect(770, 508, 810, 552, 0.9), True)]

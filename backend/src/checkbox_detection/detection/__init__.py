@@ -1,6 +1,6 @@
 """Checkbox detection on one decoded page: pure NumPy/OpenCV, no I/O. Read this file first.
 
-A page is first turned upright (`straighten`), then goes through three stages, in this order:
+`Pipeline.detect` runs a page through every stage, in this order:
   0. straighten - the page upright and level, boxes mapped back after (`orient.py`, `deskew.py`)
   1. locate   - `Locator`: where are the boxes          (`locate/`)
   2. classify - `StateClassifier`: is each one checked (`classify/`)
@@ -12,9 +12,11 @@ Must not import FastAPI, `api`, `imaging` or `config`; only its own modules.
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
+from time import perf_counter
 
 import numpy as np
 
+from checkbox_detection.detection.binarize import to_clean_gray
 from checkbox_detection.detection.classify import StateClassifier
 from checkbox_detection.detection.classify.fill_ratio import FillRatioClassifier
 from checkbox_detection.detection.classify.state_cnn import StateCnnClassifier
@@ -40,10 +42,28 @@ class Pipeline:
     classifier: StateClassifier
     labeler: RapidOcrLabeler
 
+    def detect(self, image: np.ndarray, labels: bool = False) -> tuple[list[Box], float]:
+        """The boxes on `image`, in its pixels and reading order, labelled when `labels`; and the
+        seconds stage 3 took, so callers can time it apart."""
+        upright = self.straighten(image)
+        # Clean gray once for stages 1-3, which take it as is. After stage 0, not before: deskew
+        # interpolates the page, and interpolated colour edges clean differently.
+        page = to_clean_gray(upright.image)
+        rects = self.locator.locate(page)
+        states = self.classifier.classify(page, rects)
+        boxes = sort_reading_order([Box(r, c) for r, (c, _) in zip(rects, states, strict=True)])
+        label_s = 0.0
+        if labels:
+            start = perf_counter()
+            texts = self.labeler.label(page, [b.rect for b in boxes])
+            boxes = [replace(b, label=t) for b, t in zip(boxes, texts, strict=True)]
+            label_s = perf_counter() - start
+        return upright.boxes_to_original(boxes), label_s
+
     def straighten(self, image: np.ndarray) -> Upright:
-        """Stage 0: `run` and `label` take `upright.image`; `upright.boxes_to_original` maps
-        their boxes back to `image`. Quarter turn, then deskew, then half turn: upside down is
-        told apart on a level page only."""
+        """Stage 0: the stages take `upright.image`; `upright.boxes_to_original` maps their boxes
+        back to `image`. Quarter turn, then deskew, then half turn: upside down is told apart on a
+        level page only."""
         ocr = self.labeler.ocr
         lines = text_lines(image, ocr)
         upright = quarter_turn(image) if is_sideways(lines) else Upright.identity(image)
@@ -51,16 +71,6 @@ class Pipeline:
         if is_upside_down(upright, lines, ocr):
             upright = upright.then(half_turn(upright.image))
         return upright
-
-    def run(self, image: np.ndarray) -> list[Box]:
-        rects = self.locator.locate(image)
-        states = self.classifier.classify(image, rects)
-        return sort_reading_order([Box(r, c, s) for r, (c, s) in zip(rects, states, strict=True)])
-
-    def label(self, image: np.ndarray, boxes: list[Box]) -> list[Box]:
-        """Stage 3, separate from `run` so callers can time it and skip it when not asked for."""
-        texts = self.labeler.label(image, [b.rect for b in boxes])
-        return [replace(b, label=t) for b, t in zip(boxes, texts, strict=True)]
 
 
 # Each constructor takes (models_dir, onnx_threads); the ONNX stages use them.

@@ -1,7 +1,7 @@
 """Fine-tune the `cnn` state classifier from its published `state_cnn.pt`, export it to ONNX
 with the same input and output, and pick `StateCnnParams` on validation.
 
-Crops are made with the service's own `StateCnnClassifier._crop`, so training sees exactly what the
+Crops are made with the service's own `state_cnn.crop`, so training sees exactly what the
 service feeds the model. Only boxes whose source state is trusted are used (data.py).
 
     uv run python train_cnn.py
@@ -9,7 +9,6 @@ service feeds the model. Only boxes whose source state is trusted are used (data
 
 import argparse
 import random
-from dataclasses import replace
 
 import cv2
 import numpy as np
@@ -24,7 +23,7 @@ from checkbox_detection.detection.classify.state_cnn import (
     MEAN,
     STD,
     WIDTH,
-    StateCnnClassifier,
+    crop,
 )
 from checkbox_detection.detection.types import Rect
 
@@ -86,7 +85,6 @@ def crops(
     the checked training boxes were like that, and the model learned to call empty boxes with a
     thick border checked.
     """
-    cropper = StateCnnClassifier(MODELS, 1)
     coco = split(name)
     xs, ys = [], []
     for image, boxes in zip(coco["images"], boxes_by_image(coco).values(), strict=True):
@@ -111,9 +109,7 @@ def crops(
                     round(y + h + rng.uniform(-j, j) * h),
                     1.0,
                 )
-                pad_frac = rng.choice(PAD_FRACS) if pad is None else pad
-                cropper.params = replace(cropper.params, pad_frac=pad_frac)
-                xs.append(cropper._crop(gray, rect))
+                xs.append(crop(gray, rect, rng.choice(PAD_FRACS) if pad is None else pad))
                 ys.append(int(b["checked"]))
     return np.stack(xs), np.array(ys)
 

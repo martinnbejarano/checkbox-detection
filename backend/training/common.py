@@ -2,13 +2,13 @@
 
 import json
 import random
-import sys
 from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
 
+from checkbox_detection.detection.geometry import match
 from checkbox_detection.detection.locate import Locator
 from checkbox_detection.detection.types import Rect
 
@@ -52,8 +52,6 @@ def truth(boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-sys.path.insert(0, str(HERE.parent / "scripts"))  # scripts/ is not a package
-
 Page = tuple[np.ndarray, list[dict[str, Any]]]
 
 
@@ -68,8 +66,6 @@ def val_pages(limit: int | None) -> list[Page]:
 
 def detection_counts(locator: Locator, pages: list[Page]) -> tuple[int, int, int]:
     """(truth boxes, found boxes, matched at IoU 0.5) over the pages."""
-    from evaluate import match  # importable once scripts/ is on the path, above
-
     t = f = m = 0
     for image, gt in pages:
         found = locator.locate(image)

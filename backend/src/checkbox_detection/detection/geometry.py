@@ -15,6 +15,25 @@ def iou(a: Rect, b: Rect) -> float:
     return inter / union if union else 0.0
 
 
+def match(truth: list[Rect], found: list[Rect], min_iou: float) -> list[tuple[int, int]]:
+    """Greedy one-to-one (truth index, found index) pairs, highest IoU first, IoU >= min_iou."""
+    candidates = sorted(
+        ((iou(t, f), ti, fi) for ti, t in enumerate(truth) for fi, f in enumerate(found)),
+        reverse=True,
+    )
+    pairs: list[tuple[int, int]] = []
+    used_t: set[int] = set()
+    used_f: set[int] = set()
+    for score, ti, fi in candidates:
+        if score < min_iou:
+            break
+        if ti not in used_t and fi not in used_f:
+            pairs.append((ti, fi))
+            used_t.add(ti)
+            used_f.add(fi)
+    return sorted(pairs)
+
+
 def nms(rects: list[Rect], max_iou: float) -> list[Rect]:
     """Drop rects overlapping a kept one by more than `max_iou`; larger rects win."""
     kept: list[Rect] = []

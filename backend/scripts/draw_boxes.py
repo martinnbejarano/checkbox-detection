@@ -33,7 +33,7 @@ def draw_boxes(ground_truth: Path, out: Path, locator: str | None, classifier: s
         )
         boxes = [
             {"bbox": [b.rect.x1, b.rect.y1, b.rect.x2, b.rect.y2], "is_checked": b.is_checked}
-            for b in pipeline.run(np.asarray(image))
+            for b in pipeline.detect(np.asarray(image))[0]
         ]
     else:
         boxes = truth["boxes"]

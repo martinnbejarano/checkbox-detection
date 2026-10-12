@@ -66,9 +66,9 @@ def skew_angle(binary: np.ndarray, params: DeskewParams) -> float:
     return best
 
 
-def deskew(image: np.ndarray, params: DeskewParams | None = None) -> Upright:
+def deskew(image: np.ndarray) -> Upright:
     """The page rotated level on a canvas enlarged to keep every corner, filled with white."""
-    params = params or DeskewParams()
+    params = DeskewParams()
     h, w = image.shape[:2]
     gray = to_clean_gray(image)
     scale = params.work_px / max(h, w)

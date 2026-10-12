@@ -26,6 +26,9 @@ class OrientParams:
     probe_aspect: float = 8.0
 
 
+PARAMS = OrientParams()
+
+
 def quarter_turn(image: np.ndarray) -> Upright:
     """The page turned 90° clockwise."""
     h, w = image.shape[:2]  # x = y', y = h - x'
@@ -40,11 +43,10 @@ def half_turn(image: np.ndarray) -> Upright:
     return Upright(cv2.rotate(image, cv2.ROTATE_180), np.array([[-1.0, 0, w], [0, -1, h]]), (w, h))
 
 
-def text_lines(image: np.ndarray, ocr: RapidOCR, params: OrientParams | None = None) -> np.ndarray:
+def text_lines(image: np.ndarray, ocr: RapidOCR) -> np.ndarray:
     """Corners of each text line, (n, 4, 2) in `image` pixels."""
-    params = params or OrientParams()
     gray = to_clean_gray(image)
-    scale = params.work_px / max(gray.shape)
+    scale = PARAMS.work_px / max(gray.shape)
     if scale < 1:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
     # The models are called directly: `ocr(...)` keeps its use_det/use_rec flags on the shared
@@ -54,30 +56,26 @@ def text_lines(image: np.ndarray, ocr: RapidOCR, params: OrientParams | None = N
     return np.zeros((0, 4, 2)) if out.boxes is None else out.boxes / min(scale, 1)
 
 
-def is_sideways(lines: np.ndarray, params: OrientParams | None = None) -> bool:
+def is_sideways(lines: np.ndarray) -> bool:
     """Most lines are taller than wide."""
-    params = params or OrientParams()
-    if len(lines) < params.min_lines:
+    if len(lines) < PARAMS.min_lines:
         return False
     w, h = np.ptp(lines[..., 0], axis=1), np.ptp(lines[..., 1], axis=1)
     return bool((h > w).mean() > 0.5)
 
 
-def is_upside_down(
-    level: Upright, lines: np.ndarray, ocr: RapidOCR, params: OrientParams | None = None
-) -> bool:
+def is_upside_down(level: Upright, lines: np.ndarray, ocr: RapidOCR) -> bool:
     """The widest `lines` (original page pixels) read better turned 180° on `level.image`."""
-    params = params or OrientParams()
-    if len(lines) < params.min_lines:
+    if len(lines) < PARAMS.min_lines:
         return False
     m = cv2.invertAffineTransform(level.to_original)
     lines = lines @ m[:, :2].T + m[:, 2]
-    widest = lines[np.argsort(-np.ptp(lines[..., 0], axis=1))[: params.probe_lines]]
+    widest = lines[np.argsort(-np.ptp(lines[..., 0], axis=1))[: PARAMS.probe_lines]]
     h, w = level.image.shape[:2]
     probes = []
     for x1, y1, x2, y2 in np.concatenate([widest.min(axis=1), widest.max(axis=1)], axis=1):
         x1, y1 = max(int(x1), 0), max(int(y1), 0)
-        x2 = min(int(x2) + 1, w, x1 + round(params.probe_aspect * (y2 - y1)))
+        x2 = min(int(x2) + 1, w, x1 + round(PARAMS.probe_aspect * (y2 - y1)))
         crop = to_clean_gray(level.image[y1 : min(int(y2) + 1, h), x1:x2])
         probes.append(cv2.cvtColor(crop, cv2.COLOR_GRAY2BGR))
     turned = [cv2.rotate(p, cv2.ROTATE_180) for p in probes]

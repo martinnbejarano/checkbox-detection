@@ -3,7 +3,7 @@
 from time import perf_counter
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, Request, UploadFile
 
 from checkbox_detection.api.schemas import BoxOut, DetectResponse, HealthResponse
 from checkbox_detection.config import Settings
@@ -30,22 +30,14 @@ def detect(
     settings: Settings = request.app.state.settings
     data = file.file.read()
 
-    if len(data) > settings.max_upload_bytes:
-        raise HTTPException(413, f"Upload is above the {settings.max_upload_bytes} byte limit")
-
     start = perf_counter()
     pages = load_pages(data, settings)
     decoded = perf_counter()
     boxes: list[BoxOut] = []
     label_s = 0.0
     for page in pages:
-        upright = pipeline.straighten(page.image)
-        page_boxes = pipeline.run(upright.image)
-        if labels:
-            labeled = perf_counter()
-            page_boxes = pipeline.label(upright.image, page_boxes)
-            label_s += perf_counter() - labeled
-        page_boxes = upright.boxes_to_original(page_boxes)
+        page_boxes, page_label_s = pipeline.detect(page.image, labels)
+        label_s += page_label_s
         boxes += [BoxOut.from_box(box, page.index, labels) for box in page_boxes]
     request.state.log_fields = {
         "pages": len(pages),

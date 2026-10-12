@@ -1,6 +1,7 @@
 import pytest
-from evaluate import match, same_label
+from evaluate import same_label
 
+from checkbox_detection.detection.geometry import match
 from checkbox_detection.detection.types import Rect
 
 

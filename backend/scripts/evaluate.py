@@ -22,7 +22,7 @@ import numpy as np
 
 from checkbox_detection.config import Settings
 from checkbox_detection.detection import CLASSIFIERS, LOCATORS, Pipeline, build_pipeline
-from checkbox_detection.detection.geometry import iou
+from checkbox_detection.detection.geometry import match
 from checkbox_detection.detection.types import Rect
 from checkbox_detection.imaging import load_pages
 
@@ -31,21 +31,6 @@ DATA = REPO / "backend" / "tests" / "data"
 SAMPLES, EXTERNAL = "samples", "external (unseen)"
 SETS = {SAMPLES: DATA / "ground_truth", EXTERNAL: DATA / "external"}
 MATCH_IOU, LOOSE_IOU = 0.5, 0.3
-
-
-def match(truth: list[Rect], found: list[Rect], min_iou: float) -> list[tuple[int, int]]:
-    """Greedy one-to-one (truth index, found index) pairs, highest IoU first, IoU >= min_iou."""
-    candidates = sorted(
-        ((iou(t, f), ti, fi) for ti, t in enumerate(truth) for fi, f in enumerate(found)),
-        reverse=True,
-    )
-    pairs: list[tuple[int, int]] = []
-    for score, ti, fi in candidates:
-        if score < min_iou:
-            break
-        if all(ti != t and fi != f for t, f in pairs):
-            pairs.append((ti, fi))
-    return sorted(pairs)
 
 
 def same_label(found: str | None, truth: str) -> bool:
@@ -95,14 +80,10 @@ def score_page(
     pipeline: Pipeline, image: np.ndarray, truth: list[dict[str, Any]], labels: bool
 ) -> Score:
     start = perf_counter()
-    upright = pipeline.straighten(image)
-    boxes = pipeline.run(upright.image)
-    score = Score(ms=[(perf_counter() - start) * 1000])
+    boxes, label_s = pipeline.detect(image, labels)
+    score = Score(ms=[(perf_counter() - start - label_s) * 1000])
     if labels:
-        start = perf_counter()
-        boxes = pipeline.label(upright.image, boxes)
-        score.label_ms.append((perf_counter() - start) * 1000)
-    boxes = upright.boxes_to_original(boxes)
+        score.label_ms.append(label_s * 1000)
 
     rects = [Rect(*t["bbox"], score=1.0) for t in truth]
     score.truth, score.found = len(truth), len(boxes)

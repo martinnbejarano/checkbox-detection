@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 from conftest import MODELS_DIR
-from evaluate import match
 from fastapi.testclient import TestClient
 
 from checkbox_detection.config import Settings
+from checkbox_detection.detection.geometry import match
 from checkbox_detection.detection.types import Rect
 from checkbox_detection.main import create_app
 

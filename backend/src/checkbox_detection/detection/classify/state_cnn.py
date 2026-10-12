@@ -42,19 +42,21 @@ class StateCnnClassifier:
         if not rects:
             return []
         gray = to_clean_gray(image)
-        crops = np.stack([self._crop(gray, r) for r in rects])[:, None]
+        crops = np.stack([crop(gray, r, self.params.pad_frac) for r in rects])[:, None]
         x = (crops.astype(np.float32) / 255 - MEAN) / STD
         logits = self.session.run(None, {self.session.get_inputs()[0].name: x})[0]
         filled = 1 / (1 + np.exp(logits[:, 0] - logits[:, 1]))  # softmax over (empty, filled)
         return [(bool(p > self.params.threshold), float(p)) for p in filled]
 
-    def _crop(self, gray: np.ndarray, rect: Rect) -> np.ndarray:
-        """The padded box, letterboxed into 40x160 on white, centred, aspect kept."""
-        pad = round(self.params.pad_frac * min(rect.x2 - rect.x1, rect.y2 - rect.y1))
-        crop = gray[max(0, rect.y1 - pad) : rect.y2 + pad, max(0, rect.x1 - pad) : rect.x2 + pad]
-        scale = min(WIDTH / crop.shape[1], HEIGHT / crop.shape[0])
-        w, h = max(1, round(crop.shape[1] * scale)), max(1, round(crop.shape[0] * scale))
-        out = np.full((HEIGHT, WIDTH), 255, np.uint8)
-        x0, y0 = (WIDTH - w) // 2, (HEIGHT - h) // 2
-        out[y0 : y0 + h, x0 : x0 + w] = cv2.resize(crop, (w, h), interpolation=cv2.INTER_LINEAR)
-        return out
+
+def crop(gray: np.ndarray, rect: Rect, pad_frac: float) -> np.ndarray:
+    """The box padded by `pad_frac` of its side, letterboxed into 40x160 on white, centred, aspect
+    kept. Training (training/train_cnn.py) makes its crops with it too."""
+    pad = round(pad_frac * min(rect.x2 - rect.x1, rect.y2 - rect.y1))
+    box = gray[max(0, rect.y1 - pad) : rect.y2 + pad, max(0, rect.x1 - pad) : rect.x2 + pad]
+    scale = min(WIDTH / box.shape[1], HEIGHT / box.shape[0])
+    w, h = max(1, round(box.shape[1] * scale)), max(1, round(box.shape[0] * scale))
+    out = np.full((HEIGHT, WIDTH), 255, np.uint8)
+    x0, y0 = (WIDTH - w) // 2, (HEIGHT - h) // 2
+    out[y0 : y0 + h, x0 : x0 + w] = cv2.resize(box, (w, h), interpolation=cv2.INTER_LINEAR)
+    return out

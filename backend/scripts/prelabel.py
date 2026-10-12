@@ -24,9 +24,7 @@ def prelabel(image: Path, out: Path, locator: str, classifier: str, labels: bool
         locator, classifier, REPO / "backend" / settings.models_dir, settings.onnx_threads
     )
     page = load_pages(image.read_bytes(), settings)[0].image
-    boxes = pipeline.run(page)
-    if labels:
-        boxes = pipeline.label(page, boxes)
+    boxes, _ = pipeline.detect(page, labels)
     draft = {
         "image": image.resolve().relative_to(REPO).as_posix(),
         "boxes": [

@@ -44,23 +44,32 @@ class YoloxParams:
     max_side_frac: float = 0.06
 
 
+def letterbox(tile: np.ndarray) -> tuple[np.ndarray, float]:
+    """A gray `tile` with its long side scaled to 640, on a 640 x 640 `PAD` canvas from the top
+    left; and that scale. Training (training/train_yolox.py) makes its input with it too."""
+    scale = INPUT / max(tile.shape)
+    size = (round(tile.shape[1] * scale), round(tile.shape[0] * scale))
+    canvas = np.full((INPUT, INPUT), PAD, np.uint8)
+    canvas[: size[1], : size[0]] = cv2.resize(tile, size, interpolation=cv2.INTER_AREA)
+    return canvas, scale
+
+
 class YoloxLocator:
     def __init__(self, models_dir: Path, threads: int) -> None:
         self.session = load_session(models_dir / MODEL_FILE, threads)
         self.params = YoloxParams()
 
     def locate(self, image: np.ndarray) -> list[Rect]:
-        # Red watermarks and blue cell fills turned white, as for the OpenCV locator; the model
-        # takes 3 channels.
-        rgb = cv2.cvtColor(to_clean_gray(image), cv2.COLOR_GRAY2RGB)
-        height, width = rgb.shape[:2]
+        # Red watermarks and blue cell fills turned white, as for the OpenCV locator.
+        gray = to_clean_gray(image)
+        height, width = gray.shape
         windows = tile_windows(
             width,
             height,
             tile=round(self.params.tile_frac * width),
             overlap=round(self.params.overlap_frac * width),
         )
-        rects = [r for w in windows for r in self._locate_tile(rgb, w)]
+        rects = [r for w in windows for r in self._locate_tile(gray, w)]
         max_side = self.params.max_side_frac * width
         return [
             r
@@ -69,16 +78,12 @@ class YoloxLocator:
             and max(r.x2 - r.x1, r.y2 - r.y1) <= max_side
         ]
 
-    def _locate_tile(self, rgb: np.ndarray, window: tuple[int, int, int, int]) -> list[Rect]:
+    def _locate_tile(self, gray: np.ndarray, window: tuple[int, int, int, int]) -> list[Rect]:
         x1, y1, x2, y2 = window
-        tile = rgb[y1:y2, x1:x2]
-        # Letterbox: scale the long side to 640, pad right and bottom.
-        scale = INPUT / max(tile.shape[:2])
-        size = (round(tile.shape[1] * scale), round(tile.shape[0] * scale))
-        resized = cv2.resize(tile, size, interpolation=cv2.INTER_AREA)
-        canvas = np.full((INPUT, INPUT, 3), PAD, np.uint8)
-        canvas[: resized.shape[0], : resized.shape[1]] = resized
-        x = canvas.astype(np.float32).transpose(2, 0, 1)[None]
+        canvas, scale = letterbox(gray[y1:y2, x1:x2])
+        x = np.repeat(canvas[None, None], 3, axis=1).astype(
+            np.float32
+        )  # the model takes 3 channels
 
         # Rows are [cx, cy, w, h, objectness, p_text, p_choice, p_signature], in 640 px.
         out = self.session.run(None, {self.session.get_inputs()[0].name: x})[0][0]
