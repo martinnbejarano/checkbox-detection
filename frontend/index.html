@@ -5,9 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Checkbox Detection</title>
-    <meta name="description" content="Find every checkbox on a form: checked or unchecked, with its label." />
+    <meta name="description" content="Checkbox detection for appraisal forms: each box with its position, checked or unchecked state and label." />
   </head>
   <body>
+    <!--
+      THESIS: The service reads a form the way a corrector reads a galley proof: every box gets a pencil mark on the page and a numbered note in the margin. It refuses the gray SaaS dashboard with colored status chips.
+      OWN-WORLD: Neutral proof paper and ink, one blue pencil for marks (hatched = checked, open = unchecked), a vermilion pencil only for low-confidence boxes, crop marks, pixel rulers on the sheet edges, Archivo set wide.
+      STORY: Drop a form, watch the reading rule pass, then check any mark against the page: hover a note, its box is circled, the rulers and slip give its coordinates and confidence.
+      FIRST VIEWPORT: Left, a wide heavy headline and a blank sheet in crop marks as the drop target with its Browse action. Right, a marked 1004 fragment with its proof margin drawing itself in.
+      FORM: Galley proof markup, #3 of 7, seed 6ed29051.
+      FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+    -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

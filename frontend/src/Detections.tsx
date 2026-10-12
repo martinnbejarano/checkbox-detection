@@ -1,4 +1,4 @@
-import { CheckedIcon, UncheckedIcon, WarningIcon } from './icons'
+import { CheckedIcon, UncheckedIcon } from './icons'
 import type { Item } from './Workspace'
 
 type Props = {
@@ -8,6 +8,7 @@ type Props = {
   onSelect: (id: number) => void
 }
 
+/** The proof margin: one note per box, in reading order, numbered like the corrector's marks. */
 export function Detections({ items, active, onHover, onSelect }: Props) {
   if (items.length === 0) {
     return (
@@ -26,6 +27,7 @@ export function Detections({ items, active, onHover, onSelect }: Props) {
             className="row"
             data-row={id}
             data-active={id === active || undefined}
+            data-uncertain={uncertain || undefined}
             onMouseEnter={() => onHover(id)}
             onMouseLeave={() => onHover(null)}
             onFocus={() => onHover(id)}
@@ -33,15 +35,12 @@ export function Detections({ items, active, onHover, onSelect }: Props) {
             onClick={() => onSelect(id)}
           >
             <span className="row-index">{i + 1}</span>
-            <span className={box.is_checked ? 'row-icon checked' : 'row-icon unchecked'}>
-              {box.is_checked ? <CheckedIcon /> : <UncheckedIcon />}
-            </span>
+            <span className="row-icon">{box.is_checked ? <CheckedIcon /> : <UncheckedIcon />}</span>
             <span className="row-label">
               {box.label ? box.label : <span className="no-label">Label not detected</span>}
             </span>
             {uncertain && (
-              <span className="uncertain" title={`Locator confidence ${box.score.toFixed(2)}`}>
-                <WarningIcon />
+              <span className="query" title="Check this box by eye">
                 Low confidence
               </span>
             )}

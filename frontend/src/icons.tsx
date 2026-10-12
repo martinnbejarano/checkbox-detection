@@ -21,23 +21,17 @@ function Icon({ children, ...props }: IconProps) {
   )
 }
 
+// The two proof marks repeat the boxes drawn on the page: a pencil square, hatched when checked.
 export const CheckedIcon = (props: IconProps) => (
   <Icon {...props}>
-    <rect x="2" y="2" width="12" height="12" rx="3" fill="currentColor" stroke="none" />
-    <path d="M5 8.2l2 2 4-4.4" stroke="#fff" strokeWidth="1.75" />
+    <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
+    <path d="M2.75 8.25l5.5-5.5M2.75 12.75l10-10M7.25 13.25l6-6" strokeWidth="1.25" />
   </Icon>
 )
 
 export const UncheckedIcon = (props: IconProps) => (
   <Icon {...props}>
-    <rect x="2.75" y="2.75" width="10.5" height="10.5" rx="2.5" />
-  </Icon>
-)
-
-export const WarningIcon = (props: IconProps) => (
-  <Icon {...props}>
-    <path d="M8 2.5l6 10.5H2z" />
-    <path d="M8 6.75v2.5M8 11.3v.01" />
+    <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
   </Icon>
 )
 
