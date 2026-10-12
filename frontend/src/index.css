@@ -218,6 +218,7 @@ figure {
   align-items: center;
   gap: 4px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 /* Lives in the bar, never over the document, so it can't hide a box. */

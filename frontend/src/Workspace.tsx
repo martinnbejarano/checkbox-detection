@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import { ApiError, detect, type Box, type DetectResponse } from './api'
+import { ApiError, detect, type Box } from './api'
 import { Connector } from './Connector'
 import { Detections, DetectionsSkeleton } from './Detections'
 import { DocumentView } from './DocumentView'
@@ -24,7 +24,10 @@ type Props = {
 
 /** One uploaded file. App remounts it per file, so every piece of state starts fresh. */
 export function Workspace({ file, onUpload }: Props) {
-  const [result, setResult] = useState<DetectResponse | null>(null)
+  const [boxes, setBoxes] = useState<Box[]>([])
+  // Pages arrive in order, so the first `readPages` pages have all their boxes.
+  const [readPages, setReadPages] = useState(0)
+  const [done, setDone] = useState(false)
   const [error, setError] = useState<ApiError | null>(null)
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
   const [pageCount, setPageCount] = useState(1)
@@ -38,7 +41,11 @@ export function Workspace({ file, onUpload }: Props) {
 
   useEffect(() => {
     const controller = new AbortController()
-    detect(file, controller.signal).then(setResult, (e: unknown) => {
+    const onPage = ({ page, boxes }: { page: number; boxes: Box[] }) => {
+      setBoxes((prev) => [...prev, ...boxes])
+      setReadPages(page + 1)
+    }
+    detect(file, onPage, controller.signal).then(() => setDone(true), (e: unknown) => {
       if (controller.signal.aborted) return
       setError(e instanceof ApiError ? e : new ApiError('Something went wrong', "The response couldn't be read. Try again."))
     })
@@ -91,7 +98,8 @@ export function Workspace({ file, onUpload }: Props) {
     [],
   )
 
-  const items: Item[] = (result?.boxes ?? [])
+  const pageRead = pageIndex < readPages
+  const items: Item[] = boxes
     .map((box, id) => ({ id, box, uncertain: box.score < LOW_CONFIDENCE }))
     .filter((item) => item.box.page === pageIndex)
   const checkedCount = items.filter((item) => item.box.is_checked).length
@@ -125,8 +133,8 @@ export function Workspace({ file, onUpload }: Props) {
 
   const status = error
     ? `${error.title}. ${error.detail}`
-    : result
-      ? `Found ${result.boxes.length} checkboxes`
+    : done
+      ? `Found ${boxes.length} checkboxes`
       : 'Detecting checkboxes'
 
   return (
@@ -186,7 +194,7 @@ export function Workspace({ file, onUpload }: Props) {
               // Until the new page has rendered, the old one shows without boxes rather than with the wrong ones.
               items={page?.index === pageIndex ? items : []}
               active={active}
-              scanning={!result && !error}
+              scanning={!pageRead && !error}
               onHover={hoverBox}
             />
           )}
@@ -196,10 +204,15 @@ export function Workspace({ file, onUpload }: Props) {
       <aside className="panel" aria-label="Detections">
         <div className="panel-head">
           <h2>Detections</h2>
-          {result && <span className="count">{items.length}</span>}
-          {pageCount > 1 && <span className="muted">on page {pageIndex + 1}</span>}
+          {pageRead && <span className="count">{items.length}</span>}
+          {pageCount > 1 && (
+            <span className="muted">
+              on page {pageIndex + 1}
+              {!done && !error && ` · ${readPages} of ${pageCount} read`}
+            </span>
+          )}
         </div>
-        {result && items.length > 0 && (
+        {pageRead && items.length > 0 && (
           <p className="tally">
             <span>{checkedCount} checked</span>
             <span>{items.length - checkedCount} unchecked</span>
@@ -207,7 +220,10 @@ export function Workspace({ file, onUpload }: Props) {
           </p>
         )}
         <div className="panel-body">
-          {error ? (
+          {/* Pages read before a failure keep their detections; the error shows on the rest. */}
+          {pageRead ? (
+            <Detections items={items} active={active} onHover={hoverRow} onSelect={select} />
+          ) : error ? (
             <div className="panel-note error" role="alert">
               <p className="panel-note-title">{error.title}</p>
               <p>{error.detail}</p>
@@ -215,13 +231,11 @@ export function Workspace({ file, onUpload }: Props) {
                 Choose another file
               </button>
             </div>
-          ) : result ? (
-            <Detections items={items} active={active} onHover={hoverRow} onSelect={select} />
           ) : (
             <DetectionsSkeleton />
           )}
         </div>
-        {result && items.length > 0 && (
+        {pageRead && items.length > 0 && (
           <p className="slip">
             {focused ? (
               <>

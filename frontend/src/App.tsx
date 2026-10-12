@@ -76,7 +76,7 @@ export default function App() {
               <span className="crop" data-corner="bl" aria-hidden="true" />
               <span className="crop" data-corner="br" aria-hidden="true" />
               <span className="dropzone-title">{dragging ? 'Drop to detect checkboxes' : 'Drag and drop a form here'}</span>
-              <span className="dropzone-hint">PNG, JPEG, TIFF, WEBP or PDF · up to 20 MB</span>
+              <span className="dropzone-hint">PNG, JPEG, TIFF, WEBP or PDF · up to 50 MB</span>
               <span className="button primary">
                 <UploadIcon />
                 Browse files
