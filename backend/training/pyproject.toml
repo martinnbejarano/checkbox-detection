@@ -1,0 +1,31 @@
+[project]
+name = "checkbox-training"
+version = "0.1.0"
+description = "Offline tuning of the checkbox-detection stages (spec §6). Never imported by the service."
+requires-python = ">=3.13"
+dependencies = [
+    "checkbox-detection",
+    "torch>=2.9",
+    "torchvision>=0.24",
+    "onnx>=1.19",
+    "yolox",
+]
+
+[tool.uv]
+package = false
+
+# YOLOX's setup.py imports torch and setuptools without declaring them.
+[tool.uv.extra-build-dependencies]
+yolox = ["setuptools", { requirement = "torch", match-runtime = true }]
+
+[tool.uv.sources]
+checkbox-detection = { path = "..", editable = true }
+yolox = { git = "https://github.com/Megvii-BaseDetection/YOLOX" }
+
+# Static metadata for YOLOX (needed by match-runtime above). Its onnx-simplifier pin does not
+# build on Python 3.13 and only serves YOLOX's own export tool, so it is left out. Headless
+# OpenCV, as in the service, so two cv2 wheels do not overwrite each other.
+[[tool.uv.dependency-metadata]]
+name = "yolox"
+version = "0.3.0"
+requires-dist = ["numpy", "opencv-python-headless", "loguru", "tqdm", "thop", "tabulate", "psutil", "pycocotools"]

@@ -1,4 +1,5 @@
-"""StateCnnClassifier: `nutrientdocs/form-field-v1-state` on 40x160 gray crops, one batched run.
+"""StateCnnClassifier: `nutrientdocs/form-field-v1-state`, fine-tuned (training/train_cnn.py), on
+40x160 gray crops, one batched run.
 
 Must not import `locate`, `label` or anything outside `detection`.
 """
@@ -13,20 +14,22 @@ from checkbox_detection.detection.binarize import to_clean_gray
 from checkbox_detection.detection.onnx import load_session
 from checkbox_detection.detection.types import Rect
 
-MODEL_FILE = "form-field-v1-state.onnx"
+MODEL_FILE = "form-field-v1-state-tuned.onnx"
 HEIGHT, WIDTH = 40, 160  # the model's input crop
 MEAN, STD = 0.5, 0.5  # the model's input normalisation, on pixels scaled to 0-1
 
 
 @dataclass(frozen=True, slots=True)
 class StateCnnParams:
+    # Checked on the validation split, true boxes (training/train_cnn.py tune): state accuracy
+    # 0.982 with these, against 0.955 for the pretrained model at its best setting. Boxes whose
+    # mark the clean gray erases (colour ticks) are left out of both. Neither value moved: no
+    # other candidate gains 0.5 points (the rule in training/search.py).
     # The crop reaches this share of the side past each box edge, so a border a locator cut a few
-    # px short is still whole. On the samples 0-0.15 classify all but 1-2 boxes right; 0.25 and
-    # up pull in label text and neighbouring rules.
+    # px short is still whole (0 to 0.15 tried, within 0.6 points).
     pad_frac: float = 0.05
     # P(filled) above this means checked: the model's own 0.5 plus a 0.2 margin, so an ambiguous
-    # score resolves to unchecked and no checked box is invented. Sample boxes score below 0.1 or
-    # above 0.74.
+    # score resolves to unchecked (0.5 to 0.95 tried, all within 0.4 points).
     threshold: float = 0.7
 
 

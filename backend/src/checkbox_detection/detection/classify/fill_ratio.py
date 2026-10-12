@@ -20,22 +20,26 @@ from checkbox_detection.detection.types import Rect
 
 @dataclass(frozen=True, slots=True)
 class FillParams:
+    # Checked on the validation split, on the true boxes whose state is trusted, by state accuracy
+    # at the best threshold of each try (training/search.py fill): 0.908 with the earlier values,
+    # 0.930 with these. A field moved only where it gained 0.5 points.
     # Interior = the box shrunk by max(border + border_gap_frac * side, min_margin_frac * side).
-    # Smallest inset, as a share of the side.
-    min_margin_frac: float = 0.15
+    # Smallest inset, as a share of the side; 0.2 gains 1.3 points over 0.15, 0.1 loses 6.
+    min_margin_frac: float = 0.2
     # Gap kept past the measured border, as a share of the side.
     border_gap_frac: float = 0.05
     # Rules longer than this multiple of the side are removed around the box first.
     rule_length_factor: float = 1.5
     # A stroke counts as a mark only when at least this share of its ink is inside the box;
-    # a stray stroke that only crosses the box is mostly outside. Anything from 0.5 to 0.8
-    # classifies every sample box right at scales 0.5, 1 and 1.5.
-    min_inside_share: float = 0.6
+    # a stray stroke that only crosses the box is mostly outside. 0.5 gains 1.0 point over 0.6 on
+    # validation; 0.7 and 0.8 lose 1-2.
+    min_inside_share: float = 0.5
     # Straight runs at least this share of the side are box edges, set apart from the marks.
     edge_length_frac: float = 0.8
-    # Interior ink ratio above this means checked. Empty boxes measure about 0 once stray
-    # strokes are dropped; the faintest real mark on the samples is about 0.11. 0.05 plus a 0.02
-    # margin, so an ambiguous ratio resolves to unchecked.
+    # Interior ink ratio above this means checked: 0.05 plus a 0.02 margin, so an ambiguous ratio
+    # resolves to unchecked. Kept against validation, where 0.02 (the bottom of the tried range)
+    # is 1.6 points more accurate: a 2% speck would then read as checked (spec §6: ambiguous
+    # resolves to unchecked).
     fill_threshold: float = 0.07
 
 
@@ -65,10 +69,11 @@ def mark_ratio(binary: np.ndarray, rect: Rect, params: FillParams) -> float:
     # Strokes without the box's own edges, so a mark and the border are separate components.
     # Where a stroke crossed an edge it lost a few px; only those px are bridged back.
     strokes = remove_lines(crop, int(params.edge_length_frac * side))
-    # A closing fills gaps shorter than its kernel. The gap is about one border wide along the
-    # stroke, twice that where the stroke crosses at a slant; +3 px keeps 1 px borders bridged.
+    # Each stroke takes in the edge ink within about one border of it, which fills the gap where
+    # it crossed the edge. A closing does not: at a shallow angle the gap along the stroke is
+    # longer than the kernel, and the erosion cuts the bridge. +3 px keeps 1 px borders bridged.
     k = 2 * border + 3
-    bridged = cv2.morphologyEx(strokes, cv2.MORPH_CLOSE, np.ones((k, k), np.uint8)) & crop
+    bridged = cv2.dilate(strokes, np.ones((k, k), np.uint8)) & crop
     n, labels = cv2.connectedComponents(bridged)
 
     total = np.bincount(labels[strokes > 0], minlength=n)

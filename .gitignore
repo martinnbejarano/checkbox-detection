@@ -3,6 +3,11 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
-/backend/models/
+# Pretrained models come from `make models`; the fine-tuned ones are committed (spec §6).
+/backend/models/*
+!/backend/models/*-tuned.onnx
+# Training data and checkpoints stay local.
+/backend/training/data/
+/backend/training/runs/
 .DS_Store
 .impeccable/

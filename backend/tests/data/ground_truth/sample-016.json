@@ -1,0 +1,21 @@
+{
+  "image": "samples/sample-016.png",
+  "boxes": [
+    {"bbox": [866, 1923, 904, 1960], "is_checked": false, "label": "+", "tags": []},
+    {"bbox": [985, 1923, 1022, 1960], "is_checked": true, "label": "-", "tags": []},
+    {"bbox": [1412, 1923, 1450, 1960], "is_checked": false, "label": "+", "tags": []},
+    {"bbox": [1531, 1923, 1569, 1960], "is_checked": true, "label": "-", "tags": []},
+    {"bbox": [1958, 1923, 1996, 1960], "is_checked": false, "label": "+", "tags": []},
+    {"bbox": [2077, 1923, 2115, 1960], "is_checked": true, "label": "-", "tags": []},
+    {"bbox": [165, 2065, 203, 2103], "is_checked": true, "label": "did", "tags": []},
+    {"bbox": [284, 2065, 322, 2103], "is_checked": false, "label": "did not research the sale or transfer history of the subject property and comparable sales", "tags": []},
+    {"bbox": [320, 2208, 357, 2245], "is_checked": false, "label": "did", "tags": []},
+    {"bbox": [438, 2208, 476, 2245], "is_checked": true, "label": "did not reveal any prior sales or transfers of the subject property for the three years prior to the effective date of this appraisal.", "tags": []},
+    {"bbox": [320, 2303, 357, 2340], "is_checked": false, "label": "did", "tags": []},
+    {"bbox": [438, 2303, 476, 2340], "is_checked": true, "label": "did not reveal any prior sales or transfers of the comparable sales for the year prior to the date of sale of the comparable sale.", "tags": []},
+    {"bbox": [438, 3589, 476, 3627], "is_checked": true, "label": "\"as is\",", "tags": []},
+    {"bbox": [621, 3589, 658, 3627], "is_checked": false, "label": "subject to completion per plans and specifications on the basis of a hypothetical condition that the improvements have been", "tags": []},
+    {"bbox": [300, 3633, 338, 3670], "is_checked": false, "label": "subject to the following repairs or alterations on the basis of a hypothetical condition that the repairs or alterations have been completed, or", "tags": []},
+    {"bbox": [2192, 3633, 2230, 3670], "is_checked": false, "label": "subject to the", "tags": []}
+  ]
+}

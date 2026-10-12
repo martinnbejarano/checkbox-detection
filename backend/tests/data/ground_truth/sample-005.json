@@ -1,0 +1,33 @@
+{
+  "image": "samples/sample-005.png",
+  "boxes": [
+    {"bbox": [1836, 256, 1873, 294], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [1954, 256, 1992, 294], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [1677, 446, 1715, 484], "is_checked": true, "label": "Yes", "tags": []},
+    {"bbox": [1796, 446, 1834, 484], "is_checked": false, "label": "No", "tags": []},
+    {"bbox": [688, 589, 725, 626], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [834, 589, 872, 626], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [490, 1072, 528, 1109], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [609, 1072, 646, 1109], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [807, 1072, 844, 1109], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [925, 1072, 963, 1109], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [1361, 1072, 1398, 1109], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [1479, 1072, 1517, 1109], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [1915, 1072, 1953, 1109], "is_checked": false, "label": "Yes", "tags": []},
+    {"bbox": [2034, 1072, 2071, 1109], "is_checked": true, "label": "No", "tags": []},
+    {"bbox": [613, 2663, 650, 2700], "is_checked": false, "label": "Electric", "tags": []},
+    {"bbox": [803, 2663, 840, 2700], "is_checked": true, "label": "Water", "tags": []},
+    {"bbox": [973, 2663, 1010, 2700], "is_checked": true, "label": "Sewer", "tags": []},
+    {"bbox": [1147, 2663, 1185, 2700], "is_checked": false, "label": "Gas", "tags": []},
+    {"bbox": [1297, 2663, 1335, 2700], "is_checked": false, "label": "Oil", "tags": []},
+    {"bbox": [1432, 2663, 1470, 2700], "is_checked": true, "label": "Trash collection", "tags": []},
+    {"bbox": [1725, 2663, 1763, 2700], "is_checked": false, "label": "Cable", "tags": []},
+    {"bbox": [1879, 2663, 1917, 2700], "is_checked": false, "label": "Other", "tags": []},
+    {"bbox": [165, 2948, 203, 2985], "is_checked": true, "label": "did", "tags": []},
+    {"bbox": [284, 2948, 322, 2985], "is_checked": false, "label": "did not research the sale or transfer history of the subject property and comparable sales", "tags": []},
+    {"bbox": [320, 3090, 357, 3128], "is_checked": false, "label": "did", "tags": []},
+    {"bbox": [438, 3090, 476, 3128], "is_checked": true, "label": "did not reveal any prior sales or transfers of the subject property for the three years prior to the effective date of this appraisal.", "tags": []},
+    {"bbox": [320, 3185, 357, 3223], "is_checked": false, "label": "did", "tags": []},
+    {"bbox": [438, 3185, 476, 3223], "is_checked": true, "label": "did not reveal any prior sales or transfers of the comparable sales for the year prior to the date of sale of the comparable sale.", "tags": []}
+  ]
+}
