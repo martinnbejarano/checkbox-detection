@@ -168,7 +168,7 @@ checkbox-detection/
     ├── uv.lock
     ├── .python-version       # 3.13
     ├── models.txt            # pinned model files: HF repo, file, full commit sha (read by Dockerfile and `make models`)
-    ├── models/               # downloaded .onnx files (gitignored)
+    ├── models/               # pretrained .onnx from `make models` (gitignored); fine-tuned *-tuned.onnx (committed)
     ├── Dockerfile            # multi-stage; builds frontend and fetches models, so build context is the repo root
     ├── Dockerfile.dockerignore  # BuildKit picks this up for backend/Dockerfile
     ├── src/checkbox_detection/
@@ -199,6 +199,11 @@ checkbox-detection/
     │       │   ├── fill_ratio.py # FillRatioClassifier + FillParams
     │       │   └── state_cnn.py  # StateCnnClassifier: crop → 40×160 gray letterbox → one batched run
     │       └── label.py      # stage 3: RapidOcrLabeler (label strip per box → RapidOCR recognition only)
+    ├── training/             # offline tuning (section 6), own uv project with PyTorch; never imported by src/
+    │   ├── data.py           # Roboflow scans + synthetic 1004 pages → COCO train/val split under data/ (not committed)
+    │   ├── train_yolox.py    # fine-tune form-field-v1-nano, export ONNX, sweep YoloxParams
+    │   ├── train_cnn.py      # fine-tune form-field-v1-state, export ONNX, sweep StateCnnParams
+    │   └── search.py         # OpenCVParams, BinarizeParams, FillParams by search on validation
     ├── scripts/
     │   ├── evaluate.py       # metrics against ground truth, per locator × classifier combo (section 7)
     │   ├── prelabel.py       # runs the pipeline, writes ground-truth JSON drafts for correction
@@ -263,8 +268,8 @@ Checks run in this order, cheapest first. Each failure raises an `imaging.errors
 
 | Stage | Implementations (config name) | Module |
 |---|---|---|
-| 1. Locate | `opencv` (baseline, no weights) · `yolox` (`nutrientdocs/form-field-v1-nano`, Apache-2.0) | `locate/opencv.py`, `locate/yolox.py` |
-| 2. Classify state | `fill_ratio` (no weights) · `cnn` (`nutrientdocs/form-field-v1-state`, Apache-2.0) | `classify/fill_ratio.py`, `classify/state_cnn.py` |
+| 1. Locate | `opencv` (baseline, no weights) · `yolox` (`nutrientdocs/form-field-v1-nano`, Apache-2.0, fine-tuned) | `locate/opencv.py`, `locate/yolox.py` |
+| 2. Classify state | `fill_ratio` (no weights) · `cnn` (`nutrientdocs/form-field-v1-state`, Apache-2.0, fine-tuned) | `classify/fill_ratio.py`, `classify/state_cnn.py` |
 | 3. Label | RapidOCR recognition only, run only when `labels=true` | `label.py` |
 
 Any locator works with any classifier. The default pair is chosen at the [default-pipeline checkpoint](https://github.com/martinnbejarano/checkbox-detection/issues/22) from the evaluation tables; until then the default is `opencv` + `fill_ratio`, which needs no model files.
@@ -293,7 +298,7 @@ Rules for the OpenCV locator and `fill_ratio`:
 4. **Fill classification is relative.** The interior margin is a fraction of the measured side plus the measured border thickness. The ink ratio is a fraction of the interior area. Both work the same at 20 px and at 80 px.
 5. **Very small inputs are upscaled.** If the page's short edge is below about 1000 px (a low-resolution photo or crop), upscale it ×2 (nearest neighbour, so thin borders stay thin) before detection, then scale the boxes back to the original coordinates.
 
-Rule for the YOLOX locator: the model sees fixed 640 px inputs, so the page is cut into tiles whose size is a fraction of the page **width** (`tile_frac` 0.6, ≈ 1530 px on a 2550 px page), not a fixed pixel count. Width rather than the short edge, so a wide crop (the 1586×846 sample) is not cut into tiles that blow its boxes up. On the samples 0.5 loses large boxes and 0.7 small ones. The pretrained model only sees a box at a limited share of the tile (on bare synthetic pages about 0.6–2.2% of the page width; real forms do better), so one tile size cannot cover every box size: a second tile size merged by NMS is the upgrade path. Tile 1.0 finds more boxes on generic forms but gives looser bboxes and more state errors end to end; it is compared in the default-pipeline checkpoint (`.agents/research/model-selection-per-stage.md`).
+Rule for the YOLOX locator: the model sees fixed 640 px inputs, so the page is cut into tiles whose size is a fraction of the page **width** (`tile_frac` 0.6, ≈ 1530 px on a 2550 px page), not a fixed pixel count. Width rather than the short edge, so a wide crop (the 1586×846 sample) is not cut into tiles that blow its boxes up. The pretrained model was sensitive to the tile size (validation F2 0.52–0.89 over `tile_frac` 0.5–1.0); the fine-tuned one is not (0.930–0.946), so one tile size covers the box sizes seen so far.
 
 How this is verified:
 
@@ -335,18 +340,18 @@ Probe on one M4 thread: 50–270 ms per page. Parameters (tile size, overlap, sc
 ### Stage 2a: `fill_ratio` classifier (`classify/fill_ratio.py`)
 
 - Binarize the page with `binarize.py` **before** line removal.
-- Per rect: shrink inward by `max(border_thickness + 5% of side, 15% of side)`, then compute the ink ratio of the interior.
-- Only ink from strokes that sit mostly inside the box counts (labeling policy, §7). In a crop one side wider than the box, the box edges (straight runs ≥ 80% of the side) are set apart, and each remaining stroke counts only if ≥ 60% of its ink is inside the box. A stray stroke that crosses the box is mostly outside it.
-- Threshold: a fixed `fill_threshold` (0.07: 0.05 plus a 0.02 margin, so ambiguous ratios resolve to **`false`**, following the decision to avoid inventing checked boxes). Once stray strokes are dropped, empty boxes on the samples measure about 0 and the faintest mark about 0.11. A per-page split (threshold in the widest gap between the ratios) was tried and dropped: on the cropped sample it split faint X marks from full ones and called the X marks empty.
+- Per rect: shrink inward by `max(border_thickness + 5% of side, 20% of side)`, then compute the ink ratio of the interior.
+- Only ink from strokes that sit mostly inside the box counts (labeling policy, §7). In a crop one side wider than the box, the box edges (straight runs ≥ 80% of the side) are set apart, and each remaining stroke counts only if ≥ 50% of its ink is inside the box. A stroke takes in the edge ink within about one border of it, so a stray stroke that crosses the edge stays one stroke, mostly outside the box.
+- Threshold: a fixed `fill_threshold` (0.07: 0.05 plus a 0.02 margin, so ambiguous ratios resolve to **`false`**, following the decision to avoid inventing checked boxes). It is kept against validation, where 0.02 scores 1.6 points higher: a 2% speck would then read as checked. A per-page split (threshold in the widest gap between the ratios) was tried and dropped: on the cropped sample it split faint X marks from full ones and called the X marks empty.
 - Parameters in a frozen `FillParams`.
 
 ### Stage 2b: CNN state classifier (`classify/state_cnn.py`)
 
-`nutrientdocs/form-field-v1-state`: a 96k-param CNN on 40×160 gray crops that outputs empty / filled. Probe: about 0.2 ms per crop.
+`nutrientdocs/form-field-v1-state`, fine-tuned: a 96k-param CNN on 40×160 gray crops that outputs empty / filled. Probe: about 0.2 ms per crop.
 
 - Crop each rect with padding, convert to clean gray (`binarize.to_clean_gray`), letterbox to 40×160, and stack all crops of the page into **one batched** `session.run`.
 - `checked_score` = P(filled). `threshold` (`StateCnnParams`) is 0.7: the model's 0.5 plus a 0.2 margin, so an ambiguous score resolves to **`false`**, as for `fill_ratio`. A third "ambiguous" class is not trained.
-- Known limit: the pretrained model has no stray-stroke handling; a stroke crossing an empty box reads as checked.
+- Known limit: no stray-stroke handling; a stroke crossing an empty box reads as checked. On the external set the fine-tuned model marks no empty box checked, but misses large pen strokes drawn mostly outside a small box (35 of 419 boxes), which the third party labelled checked and the labeling policy does not.
 
 ### Stage 3: label (`label.py`)
 
@@ -367,24 +372,30 @@ No public dataset has bbox + state + label together, so each stage uses the sour
 
 | Stage | What is tuned | Train / validation data |
 |---|---|---|
-| `yolox` | Weights: fine-tune `form-field-v1-nano` from its published `best_ckpt.pth` + `exp.py`, one class (checkbox, state ignored), then `YoloxParams` | Synthetic pages + real scans with bbox |
-| `cnn` | Weights: fine-tune `form-field-v1-state` from its published `state_cnn.pt` on box crops, then `StateCnnParams` | Synthetic marks + real scans with state |
+| `yolox` | Weights: fine-tune `form-field-v1-nano` from its published `best_ckpt.pth` (20 epochs on tiles cut as the service cuts them; every box is ChoiceButton, so the ONNX output is unchanged), then `YoloxParams` | Synthetic pages + real scans with bbox |
+| `cnn` | Weights: fine-tune `form-field-v1-state` from its published `state_cnn.pt` on box crops made by the service's own crop, then `StateCnnParams` | Synthetic marks + real scans with trusted state |
 | `opencv`, `fill_ratio` | `OpenCVParams`, `FillParams`, `BinarizeParams` by search (no weights) | Validation split of the same data |
-| label | `LabelParams` only; the OCR recognizer is not fine-tuned (no licensed dataset has box + label text) | Synthetic pages, label text taken from the PDF text layer |
+| label | Not tuned (see below); the OCR recognizer is not fine-tuned (no licensed dataset has box + label text) | — |
 
-Sources (classes remapped to `checked` / `unchecked`; licences allow training):
+Sources (classes remapped to `checked` / `unchecked`; licences allow training), as built in `training/data.py`:
 
-- **Synthetic:** the official blank 1004 / 1004MC / 1004C PDFs. Every checkbox is a vector square, so bbox and label are exact. Boxes are marked at random (X, ✓, fill, partial fill, hand-drawn strokes, strokes crossing the box), rendered at several DPIs and degraded like a scan (slight rotation, blur, noise, JPEG, colour watermark).
-- **Real scans:** Roboflow `checkboxes-2` (1.8k, CC BY 4.0), `cogniquest-idc1w/checkboxes-xtv3p` (2.8k, CC BY 4.0), `tax-form-checkbox-detection` (126, CC BY 4.0), and the smaller CC BY 4.0 sets in the research note.
+- **Synthetic:** the official blank 1004 (Freddie Mac form 70), 1004C (70B) and 1004MC (Fannie Mae, saved by hand: its site answers scripts with a Cloudflare challenge) PDFs. Every checkbox is a stroked vector square, so the bbox is exact. Boxes are marked at random (X, ✓, fill, partial fill, scribbles; empty boxes sometimes crossed by a stray stroke), rendered at 100–300 DPI and degraded like a scan (slight rotation, blur, noise, JPEG, colour watermark).
+- **Real scans (CC BY 4.0):** Roboflow `checkboxes-2`, `cogniquest-idc1w/checkboxes-xtv3p` (boxes only: on its crops the `checked` class is mostly empty boxes), `checkbox_v2`, `checkbox-detector` and `government-document-omr-checkbox`, forked so they export at their own size (the published versions are stretched to a square). Web screenshots are dropped by colour. Their boxes are drawn loose (the printed square fills 75–90% of the side), so each is snapped to the printed square inside it.
+- **Dropped after looking at their crops:** `tax-form-checkbox-detection` (round radio buttons labelled with their word) and `checkbox-detection-jiid0` (10×10 px crops).
 - **Excluded from training:** `annotation-mmvj7/new_merge_project`, whose pages are the external evaluation set; AutoFormBench and CheckboxQA (non-commercial, evaluation only).
 
 Rules:
 
-- Train and validation splits are made **by source form**, so a validation page never shares a layout with a training page. Parameters, thresholds and the training checkpoint are chosen on validation only.
+- Train and validation splits are made **by source form**: the synthetic 1004C is the validation form; real scans have no form id, so pages whose thumbnails look alike are one group and whole groups go to validation. Parameters, thresholds and the training checkpoint are chosen on validation only.
+- A field of a `*Params` moves only when it gains at least 0.5 points on validation. Smaller gains are noise of the split: a first search moved `max_aspect` for 0.1–0.4 points and halved OpenCV recall on the external set. The rule was added after seeing that, and applies to every stage.
+- `LabelParams` are not tuned. A search against the PDF text layer of synthetic pages chose values that read the samples' labels 7–11 points worse, so its result was not applied.
+- A checked box whose mark the clean gray erases (a colour tick) is left out of the `cnn` crops: the model would see an empty box labelled checked, and it learned to call thick-bordered empty boxes checked.
 - Evaluation pages (4 samples, external set, user-added pages) are never read by `training/`.
-- Training runs locally (PyTorch on Apple MPS). Code lives in `backend/training/`, outside `src/`, so the service never imports it and the runtime image never contains PyTorch. Datasets are downloaded by a script, not committed.
+- Training runs locally (PyTorch on Apple MPS). Code lives in `backend/training/`, its own uv project outside `src/`, so the service never imports it and the runtime image never contains PyTorch. Datasets are downloaded by a script, not committed.
 - Fine-tuned weights are exported to ONNX with the same input and output as the pretrained model, so `locate/yolox.py` and `classify/state_cnn.py` only change their model file. They are committed to the repo under their own names in `backend/models/` (≈4 MB; only the final version of each stage), while the pretrained weights fetched by `make models` stay as the "before" row of the evaluation tables.
 - Tuning still favours detection recall, and resolves an ambiguous state to unchecked.
+
+Results on validation: `yolox` F2 0.779 → 0.942, `cnn` state accuracy 0.955 → 0.982 (pretrained at its best setting), `OpenCVParams` F2 0.748 → 0.810, `FillParams` 0.908 → 0.930. End to end on the external set, `yolox` + `cnn` goes from 57.3 to 71.8 and `yolox` + `fill_ratio` from 45.6 to 70.4; on the samples all combos stay at 96.9–99.0.
 
 ## 7. Evaluation
 
