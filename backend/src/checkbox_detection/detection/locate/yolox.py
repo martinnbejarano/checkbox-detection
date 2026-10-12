@@ -1,4 +1,5 @@
-"""YoloxLocator: `nutrientdocs/form-field-v1-nano` run over overlapping tiles of the page.
+"""YoloxLocator: `nutrientdocs/form-field-v1-nano`, fine-tuned (training/train_yolox.py), run over
+overlapping tiles of the page.
 
 Must not import `classify`, `label` or anything outside `detection`.
 """
@@ -14,7 +15,7 @@ from checkbox_detection.detection.geometry import nms, tile_windows
 from checkbox_detection.detection.onnx import load_session
 from checkbox_detection.detection.types import Rect
 
-MODEL_FILE = "form-field-v1-nano.onnx"
+MODEL_FILE = "form-field-v1-nano-tuned.onnx"
 INPUT = 640  # the model's fixed square input
 PAD = 114  # letterbox grey the model was trained with; pixels stay raw 0-255
 CHOICE_BUTTON = 1  # classes: 0 Text, 1 ChoiceButton, 2 Signature
@@ -22,19 +23,19 @@ CHOICE_BUTTON = 1  # classes: 0 Text, 1 ChoiceButton, 2 Signature
 
 @dataclass(frozen=True, slots=True)
 class YoloxParams:
+    # Checked on the validation split with the fine-tuned model, by detection F2 at IoU 0.5
+    # (training/train_yolox.py tune, 200 pages): 0.942 with these, against 0.779 for the
+    # pretrained model with the same values. No other tile_frac x score_threshold gains 0.5 points.
     # Tile side as a fraction of the page width (1530 px on a 2550 px page); each tile is shrunk
     # to 640 px, so this sets how big a box looks to the model. Width, not the short edge, so a
-    # wide crop is not cut into tiles that blow its boxes up. On the samples 0.5 loses large boxes
-    # and 0.7 small ones; 0.6 finds 96-100% on all four.
-    # ponytail: one tile size, so only boxes about 0.6-2.2% of the page width are seen (the
-    # model wants 10-25 px boxes in its input); run a second tile size and merge if forms with
-    # bigger or smaller boxes turn up.
+    # wide crop is not cut into tiles that blow its boxes up. The fine-tuned model scores F2
+    # 0.930-0.946 from 0.5 to 1.0 (the pretrained one 0.52-0.89), so one tile size is enough.
     tile_frac: float = 0.6
     # Neighbouring tiles overlap by this fraction of the width, more than the largest allowed box
     # side, so every box is whole in at least one tile.
     overlap_frac: float = 0.08
-    # objectness * ChoiceButton probability below this is dropped. Low, for recall: 0.3 already
-    # loses a few real boxes on the cropped sample.
+    # objectness * ChoiceButton probability below this is dropped. Low, for recall: 0.1-0.3 give
+    # the same recall on validation (0.955); 0.3 is 0.4 points better on F2, not enough to move.
     score_threshold: float = 0.2
     # The same box found in two tiles overlaps more than this.
     nms_iou: float = 0.3
