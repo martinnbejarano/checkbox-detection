@@ -40,6 +40,7 @@ async def log_requests(
     Routes add their own fields (pages, decode_ms, ...) to `request.state.log_fields`.
     """
     request_id = uuid4().hex
+    request.state.request_id = request_id
     start = perf_counter()
     error: Exception | None = None
     try:

@@ -1,3 +1,4 @@
+import json
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
@@ -98,3 +99,24 @@ def test_concurrent_pdf_requests_give_the_same_boxes() -> None:
     assert [r.status_code for r in responses] == [200] * 64
     assert all(r.json() == responses[0].json() for r in responses)
     assert len(responses[0].json()["boxes"]) == 2
+
+
+def test_stream_sends_one_line_per_page_with_the_boxes_of_detect() -> None:
+    data = two_page_pdf()
+
+    with TestClient(create_app(Settings())) as client:
+        whole = post(client, data).json()["boxes"]
+        response = client.post("/detect/stream", files={"file": ("doc.pdf", data)})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/x-ndjson"
+    lines = [json.loads(line) for line in response.text.splitlines()]
+    assert [line["page"] for line in lines] == [0, 1]
+    assert [box for line in lines for box in line["boxes"]] == whole
+
+
+def test_stream_rejects_a_bad_upload_before_streaming() -> None:
+    with TestClient(create_app(Settings(max_pdf_pages=1))) as client:
+        response = client.post("/detect/stream", files={"file": ("doc.pdf", two_page_pdf())})
+
+    assert_problem(response, 413)

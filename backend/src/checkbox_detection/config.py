@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     classifier: str = "cnn"
     models_dir: Path = Path("models")
     onnx_threads: int = 1
-    max_upload_bytes: int = 20 * 1024 * 1024
+    max_upload_bytes: int = 50 * 1024 * 1024
     max_image_pixels: int = 50_000_000
-    max_pdf_pages: int = 20
+    max_pdf_pages: int = 100
     pdf_dpi: int = 300
     cv_threads: int = 1
     log_level: str = "INFO"

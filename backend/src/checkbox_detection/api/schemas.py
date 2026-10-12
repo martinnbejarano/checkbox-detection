@@ -30,5 +30,12 @@ class DetectResponse(BaseModel):
     boxes: list[BoxOut]
 
 
+class PageOut(BaseModel):
+    """One line of `/detect/stream`: a page's boxes, sent as soon as that page is done."""
+
+    page: int
+    boxes: list[BoxOut]
+
+
 class HealthResponse(BaseModel):
     status: str
