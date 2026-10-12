@@ -1,0 +1,11 @@
+.git
+.agents
+samples
+backend/.venv
+backend/tests
+backend/training
+backend/scripts
+backend/models/*
+!backend/models/*-tuned.onnx
+frontend/node_modules
+frontend/dist

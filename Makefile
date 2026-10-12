@@ -1,7 +1,7 @@
 BACKEND = uv --directory backend
 FRONTEND = npm --prefix frontend
 
-.PHONY: install models lint typecheck test eval check run frontend-dev frontend-build
+.PHONY: install models lint typecheck test eval check run frontend-dev frontend-build docker-build docker-run
 
 install:
 	$(BACKEND) sync
@@ -41,3 +41,9 @@ frontend-dev:
 frontend-build:
 	$(FRONTEND) run lint
 	$(FRONTEND) run build
+
+docker-build:
+	docker build -f backend/Dockerfile -t checkbox-detection .
+
+docker-run:
+	docker run --rm -p 8000:8000 checkbox-detection

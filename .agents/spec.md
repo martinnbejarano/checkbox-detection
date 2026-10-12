@@ -167,9 +167,9 @@ checkbox-detection/
     ├── pyproject.toml        # uv project; ruff, mypy, pytest config
     ├── uv.lock
     ├── .python-version       # 3.13
-    ├── models.txt            # pinned model files: HF repo, file, full commit sha (read by Dockerfile and `make models`)
+    ├── models.txt            # pinned model files: HF repo, file, full commit sha (read by `make models`)
     ├── models/               # pretrained .onnx from `make models` (gitignored); fine-tuned *-tuned.onnx (committed)
-    ├── Dockerfile            # multi-stage; builds frontend and fetches models, so build context is the repo root
+    ├── Dockerfile            # multi-stage; builds frontend and copies the tuned models, so build context is the repo root
     ├── Dockerfile.dockerignore  # BuildKit picks this up for backend/Dockerfile
     ├── src/checkbox_detection/
     │   ├── main.py           # create_app(): settings, logging, lifespan (build pipeline), routes, error handlers, optional static mount
@@ -547,7 +547,7 @@ Stage tuning parameters are **not** settings. They live in frozen dataclasses ne
 
 ## 11. Tooling and code conventions
 
-- **Python 3.13 and uv** (`uv.lock` committed). Runtime dependencies: `fastapi`, `uvicorn`, `pydantic-settings`, `python-multipart`, `opencv-python-headless`, `numpy`, `pillow`, `pypdfium2`, `onnxruntime`, `rapidocr`. Dev dependencies: `pytest`, `httpx2` (Starlette's TestClient deprecates `httpx`), `ruff`, `mypy`. `huggingface_hub` is never a dependency: `make models` and the Docker build fetch each pinned file with `curl` from `huggingface.co/<repo>/resolve/<sha>/<file>`. PyTorch is never a dependency of the service.
+- **Python 3.13 and uv** (`uv.lock` committed). Runtime dependencies: `fastapi`, `uvicorn`, `pydantic-settings`, `python-multipart`, `opencv-python-headless`, `numpy`, `pillow`, `pypdfium2`, `onnxruntime`, `rapidocr`. Dev dependencies: `pytest`, `httpx2` (Starlette's TestClient deprecates `httpx`), `ruff`, `mypy`. `huggingface_hub` is never a dependency: `make models` fetches each pinned file with `curl` from `huggingface.co/<repo>/resolve/<sha>/<file>`. PyTorch is never a dependency of the service.
 - **ruff** for linting (rule sets E, F, I, B, UP, SIM, RUF) and formatting. **mypy --strict** on `backend/src/`.
 - **Make targets:** one root `Makefile`, which is the only entry point. Backend targets run `uv --directory backend …`, and frontend targets run `npm --prefix frontend …`. The targets are `install`, `models`, `lint`, `typecheck`, `test`, `eval`, `run`, `docker-build`, `docker-run`, `frontend-dev` and `frontend-build`. `make models` downloads the files pinned in `backend/models.txt` into `backend/models/<repo name>.onnx` (skips files already present); `make test` depends on it, so tests never skip for missing models. `make check` runs lint, typecheck and test for the backend, plus the frontend build (`tsc` and oxlint) once `frontend/` exists.
 - **Conventions:**
@@ -565,14 +565,14 @@ Stage tuning parameters are **not** settings. They live in frozen dataclasses ne
 
 - **Dockerfile:** `backend/Dockerfile`, multi-stage, following uv's official recipe. It is built from the repo root, `docker build -f backend/Dockerfile .`, because the image also contains the built frontend.
   - Frontend stage: `node:22-slim`, which runs `npm ci && npm run build` in `frontend/` and produces `frontend/dist`, which is copied to `/app/static`.
-  - Models stage: reads `backend/models.txt` and fetches `https://huggingface.co/<repo>/resolve/<full 40-char sha>/<file>` for each line, as `make models` does, producing `/app/models`. Weights never come from a mutable branch name.
-  - Builder: `python:3.13-slim` plus a pinned `ghcr.io/astral-sh/uv`, running `uv sync --locked --no-dev`.
-  - Runtime: `python:3.13-slim` with only `backend/.venv`, `backend/src`, `/app/static` and `/app/models`, plus `CHECKBOX_STATIC_DIR=/app/static` and `CHECKBOX_MODELS_DIR=/app/models`. It runs as a non-root user with an exec-form `CMD ["uvicorn", "checkbox_detection.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
+  - Models: the default pipeline runs only the fine-tuned `*-tuned.onnx` files, which are committed (§6), so they are copied from `backend/models/` into `/app/models`. The pretrained files in `backend/models.txt` are only for training and evaluation and stay out of the image. RapidOCR's recognizer ships inside its wheel.
+  - Builder: `python:3.13-slim` plus a pinned `ghcr.io/astral-sh/uv`, running `uv sync --locked --no-dev --no-editable`, dependencies first and then the project, so the package is installed into the venv.
+  - Runtime: `python:3.13-slim` with only the venv, `/app/static` and `/app/models`, plus `CHECKBOX_STATIC_DIR=/app/static` and `CHECKBOX_MODELS_DIR=/app/models`. It runs as a non-root user with an exec-form `CMD ["uvicorn", "checkbox_detection.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
   - `HEALTHCHECK` via python/urllib on `/health`.
-  - `backend/Dockerfile.dockerignore` excludes `.agents/`, `samples/`, `backend/tests/`, `backend/models/`, `.git`, `backend/.venv` and `frontend/node_modules`.
+  - `backend/Dockerfile.dockerignore` excludes `.agents/`, `samples/`, `backend/tests/`, `backend/training/`, `backend/scripts/`, `backend/models/` except `*-tuned.onnx`, `.git`, `backend/.venv`, `frontend/node_modules` and `frontend/dist`.
   - No apt packages are needed: OpenCV is the headless wheel, pypdfium2 ships its own binary, and onnxruntime and RapidOCR are pip wheels.
 - **Local (primary path):** `make docker-build && make docker-run`, or `make install && make models && make run` without Docker.
-- **Railway (demo URL):** the same image on CPU (1 vCPU / 2 GB), built using the root `railway.toml` (`dockerfilePath = "backend/Dockerfile"`), with `PORT` taken from the environment. If the measured latency is too slow, the next step is more vCPUs; moving models to a hosted GPU (e.g. Hugging Face) is a separate decision with its own ticket. The README states the URL, the limits, and that it is a demo instance. `TODO(prod)`: auth and rate limiting in front of the public URL.
+- **Railway (demo URL):** the same image on CPU (1 vCPU / 2 GB), built using the root `railway.toml` (`dockerfilePath = "backend/Dockerfile"`), with the service variable `PORT=8000` so Railway routes to the port the exec-form `CMD` listens on. If the measured latency is too slow, the next step is more vCPUs; moving models to a hosted GPU (e.g. Hugging Face) is a separate decision with its own ticket. The README states the URL, the limits, and that it is a demo instance. `TODO(prod)`: auth and rate limiting in front of the public URL.
 
 ## 13. Demo frontend (`frontend/`)
 
