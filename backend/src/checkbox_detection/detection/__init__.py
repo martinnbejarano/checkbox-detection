@@ -24,7 +24,13 @@ from checkbox_detection.detection.label import RapidOcrLabeler
 from checkbox_detection.detection.locate import Locator
 from checkbox_detection.detection.locate.opencv import OpenCVLocator
 from checkbox_detection.detection.locate.yolox import YoloxLocator
-from checkbox_detection.detection.orient import is_sideways, is_upside_down, text_lines, turn
+from checkbox_detection.detection.orient import (
+    half_turn,
+    is_sideways,
+    is_upside_down,
+    quarter_turn,
+    text_lines,
+)
 from checkbox_detection.detection.types import Box
 
 
@@ -40,9 +46,11 @@ class Pipeline:
         told apart on a level page only."""
         ocr = self.labeler.ocr
         lines = text_lines(image, ocr)
-        sideways = turn(image, 1 if is_sideways(lines) else 0)
-        level = sideways.then(deskew(sideways.image))
-        return level.then(turn(level.image, 2 if is_upside_down(level, lines, ocr) else 0))
+        upright = quarter_turn(image) if is_sideways(lines) else Upright.identity(image)
+        upright = upright.then(deskew(upright.image))
+        if is_upside_down(upright, lines, ocr):
+            upright = upright.then(half_turn(upright.image))
+        return upright
 
     def run(self, image: np.ndarray) -> list[Box]:
         rects = self.locator.locate(image)

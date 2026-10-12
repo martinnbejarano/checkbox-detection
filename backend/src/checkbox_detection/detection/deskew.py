@@ -31,6 +31,11 @@ class Upright:
     to_original: np.ndarray  # 2x3 affine, upright pixels -> original pixels
     original_size: tuple[int, int]  # (width, height) of the original page, to clamp boxes
 
+    @classmethod
+    def identity(cls, image: np.ndarray) -> "Upright":
+        """`image` as it is: no step."""
+        return cls(image, np.eye(2, 3), (image.shape[1], image.shape[0]))
+
     def boxes_to_original(self, boxes: list[Box]) -> list[Box]:
         """Each box as the axis-aligned box around its mapped corners; the order is kept."""
         w, h = self.original_size
@@ -54,7 +59,8 @@ def skew_angle(binary: np.ndarray, params: DeskewParams) -> float:
     best, best_var = 0.0, -1.0
     for angle in [0.0] + [s * i * params.step for i in range(1, n + 1) for s in (1, -1)]:
         m = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1)
-        var = float(cv2.warpAffine(binary, m, (w, h)).sum(axis=1, dtype=np.float64).var())
+        rows = cv2.reduce(cv2.warpAffine(binary, m, (w, h)), 1, cv2.REDUCE_SUM, dtype=cv2.CV_32S)
+        var = float(rows.var())
         if var > best_var:
             best, best_var = angle, var
     return best
@@ -70,7 +76,7 @@ def deskew(image: np.ndarray, params: DeskewParams | None = None) -> Upright:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
     angle = skew_angle(binarize(gray), params)
     if abs(angle) < params.min_angle:
-        return Upright(image, np.array([[1.0, 0, 0], [0, 1, 0]]), (w, h))
+        return Upright.identity(image)
 
     m = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1)
     cos, sin = abs(math.cos(math.radians(angle))), abs(math.sin(math.radians(angle)))

@@ -26,15 +26,17 @@ class OrientParams:
     probe_aspect: float = 8.0
 
 
-def turn(image: np.ndarray, quarters: int) -> Upright:
-    """The page turned `quarters` (0, 1 or 2) times 90° clockwise."""
+def quarter_turn(image: np.ndarray) -> Upright:
+    """The page turned 90° clockwise."""
+    h, w = image.shape[:2]  # x = y', y = h - x'
+    return Upright(
+        cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE), np.array([[0.0, 1, 0], [-1, 0, h]]), (w, h)
+    )
+
+
+def half_turn(image: np.ndarray) -> Upright:
+    """The page turned 180°."""
     h, w = image.shape[:2]
-    if quarters == 0:
-        return Upright(image, np.array([[1.0, 0, 0], [0, 1, 0]]), (w, h))
-    if quarters == 1:  # x = y', y = h - x'
-        return Upright(
-            cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE), np.array([[0.0, 1, 0], [-1, 0, h]]), (w, h)
-        )
     return Upright(cv2.rotate(image, cv2.ROTATE_180), np.array([[-1.0, 0, w], [0, -1, h]]), (w, h))
 
 

@@ -3,7 +3,7 @@ import pytest
 
 from checkbox_detection.detection.deskew import Upright
 from checkbox_detection.detection.geometry import map_rect, nms, sort_reading_order, tile_windows
-from checkbox_detection.detection.orient import turn
+from checkbox_detection.detection.orient import half_turn, quarter_turn
 from checkbox_detection.detection.types import Box, Rect
 
 
@@ -63,11 +63,11 @@ def test_map_rect_is_the_box_around_the_mapped_corners(
 
 
 def test_quarter_turn_tilt_and_half_turn_compose_back_to_the_original() -> None:
-    quarter = turn(np.zeros((600, 1000), np.uint8), 1)  # 1000 x 600 page on its side
+    quarter = quarter_turn(np.zeros((600, 1000), np.uint8))  # 1000 x 600 page on its side
     # A tilt on an enlarged canvas: x = 0.8 x' - 0.6 y' + 100, y = 0.6 x' + 0.8 y' - 50.
     canvas = np.zeros((1200, 900), np.uint8)
     tilt = Upright(canvas, np.array([[0.8, -0.6, 100], [0.6, 0.8, -50]]), (600, 1000))
-    half = turn(canvas, 2)
+    half = half_turn(canvas)
 
     upright = quarter.then(tilt).then(half)
 
