@@ -95,12 +95,14 @@ def score_page(
     pipeline: Pipeline, image: np.ndarray, truth: list[dict[str, Any]], labels: bool
 ) -> Score:
     start = perf_counter()
-    boxes = pipeline.run(image)
+    upright = pipeline.straighten(image)
+    boxes = pipeline.run(upright.image)
     score = Score(ms=[(perf_counter() - start) * 1000])
     if labels:
         start = perf_counter()
-        boxes = pipeline.label(image, boxes)
+        boxes = pipeline.label(upright.image, boxes)
         score.label_ms.append((perf_counter() - start) * 1000)
+    boxes = upright.boxes_to_original(boxes)
 
     rects = [Rect(*t["bbox"], score=1.0) for t in truth]
     score.truth, score.found = len(truth), len(boxes)

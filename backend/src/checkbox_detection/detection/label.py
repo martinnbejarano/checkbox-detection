@@ -70,21 +70,25 @@ def label_width(strip: np.ndarray, side: int, params: LabelParams) -> int:
 
 
 class RapidOcrLabeler:
-    """RapidOCR recognition only (no text detection) on one strip per box."""
+    """RapidOCR recognition only (no text detection) on one strip per box. `ocr` is shared with
+    stage 0 (`orient.py`)."""
 
     def __init__(self, threads: int) -> None:
         self.params = LabelParams()
-        self._ocr = RapidOCR(
+        self.ocr = RapidOCR(
             params={
                 "Global.use_det": False,
                 "Global.use_cls": False,
                 "Global.log_level": "warning",
+                "Rec.rec_batch_num": 20,  # orient.py reads its 2 x 10 probes in one batch
                 "EngineConfig.onnxruntime.intra_op_num_threads": threads,
                 "EngineConfig.onnxruntime.inter_op_num_threads": 1,
             }
         )
-        # RapidOCR loads its model on the first call; do it now, not on the first request.
+        # RapidOCR loads its models on the first call; do it now, not on the first request. The
+        # detection model is for `orient.py`, which shares this instance.
         self._read(np.full((32, 320), 255, np.uint8))
+        self.ocr._load_det_model()  # type: ignore[no-untyped-call]
 
     # TODO(prod): labels left of the box, and the question of the row the box answers.
     def label(self, image: np.ndarray, rects: list[Rect]) -> list[str | None]:
@@ -101,7 +105,7 @@ class RapidOcrLabeler:
     def _read(self, strip: np.ndarray) -> str | None:
         pad = round(self.params.pad_frac * strip.shape[0])
         strip = cv2.copyMakeBorder(strip, 0, 0, pad, pad, cv2.BORDER_CONSTANT, value=255)
-        out = self._ocr(strip, use_det=False, use_cls=False, use_rec=True)
+        out = self.ocr(strip, use_det=False, use_cls=False, use_rec=True)
         text = out.txts[0].strip() if out.txts else ""  # type: ignore[union-attr]
         score = out.scores[0] if out.scores else 0.0  # type: ignore[union-attr]
         return text if text and score >= self.params.min_score else None

@@ -39,11 +39,13 @@ def detect(
     boxes: list[BoxOut] = []
     label_s = 0.0
     for page in pages:
-        page_boxes = pipeline.run(page.image)
+        upright = pipeline.straighten(page.image)
+        page_boxes = pipeline.run(upright.image)
         if labels:
             labeled = perf_counter()
-            page_boxes = pipeline.label(page.image, page_boxes)
+            page_boxes = pipeline.label(upright.image, page_boxes)
             label_s += perf_counter() - labeled
+        page_boxes = upright.boxes_to_original(page_boxes)
         boxes += [BoxOut.from_box(box, page.index, labels) for box in page_boxes]
     request.state.log_fields = {
         "pages": len(pages),

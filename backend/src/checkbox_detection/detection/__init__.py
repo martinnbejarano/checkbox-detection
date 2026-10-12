@@ -1,6 +1,7 @@
 """Checkbox detection on one decoded page: pure NumPy/OpenCV, no I/O. Read this file first.
 
-A page goes through three stages, in this order:
+A page is first turned upright (`straighten`), then goes through three stages, in this order:
+  0. straighten - the page upright and level, boxes mapped back after (`orient.py`, `deskew.py`)
   1. locate   - `Locator`: where are the boxes          (`locate/`)
   2. classify - `StateClassifier`: is each one checked (`classify/`)
   3. label    - `RapidOcrLabeler`: what does it say     (`label.py`, only when labels are asked for)
@@ -17,11 +18,19 @@ import numpy as np
 from checkbox_detection.detection.classify import StateClassifier
 from checkbox_detection.detection.classify.fill_ratio import FillRatioClassifier
 from checkbox_detection.detection.classify.state_cnn import StateCnnClassifier
+from checkbox_detection.detection.deskew import Upright, deskew
 from checkbox_detection.detection.geometry import sort_reading_order
 from checkbox_detection.detection.label import RapidOcrLabeler
 from checkbox_detection.detection.locate import Locator
 from checkbox_detection.detection.locate.opencv import OpenCVLocator
 from checkbox_detection.detection.locate.yolox import YoloxLocator
+from checkbox_detection.detection.orient import (
+    half_turn,
+    is_sideways,
+    is_upside_down,
+    quarter_turn,
+    text_lines,
+)
 from checkbox_detection.detection.types import Box
 
 
@@ -30,6 +39,18 @@ class Pipeline:
     locator: Locator
     classifier: StateClassifier
     labeler: RapidOcrLabeler
+
+    def straighten(self, image: np.ndarray) -> Upright:
+        """Stage 0: `run` and `label` take `upright.image`; `upright.boxes_to_original` maps
+        their boxes back to `image`. Quarter turn, then deskew, then half turn: upside down is
+        told apart on a level page only."""
+        ocr = self.labeler.ocr
+        lines = text_lines(image, ocr)
+        upright = quarter_turn(image) if is_sideways(lines) else Upright.identity(image)
+        upright = upright.then(deskew(upright.image))
+        if is_upside_down(upright, lines, ocr):
+            upright = upright.then(half_turn(upright.image))
+        return upright
 
     def run(self, image: np.ndarray) -> list[Box]:
         rects = self.locator.locate(image)

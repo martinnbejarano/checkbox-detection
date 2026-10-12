@@ -1,6 +1,8 @@
-"""Pure box geometry helpers. Must not import anything outside `detection.types`."""
+"""Pure box geometry helpers. Must not import anything outside `detection.types` and NumPy."""
 
 import math
+
+import numpy as np
 
 from checkbox_detection.detection.types import Box, Rect
 
@@ -36,6 +38,21 @@ def sort_reading_order(boxes: list[Box]) -> list[Box]:
         else:
             rows.append([b])
     return [b for row in rows for b in sorted(row, key=lambda b: b.rect.x1)]
+
+
+def map_rect(rect: Rect, matrix: np.ndarray, width: int, height: int) -> Rect:
+    """The axis-aligned box around the 4 corners of `rect` mapped by a 2x3 affine `matrix`,
+    clamped to a `width` x `height` page."""
+    xs, ys = (rect.x1, rect.x2), (rect.y1, rect.y2)
+    corners = np.array([[x, y, 1] for x in xs for y in ys]) @ matrix.T
+    (x1, y1), (x2, y2) = corners.min(axis=0), corners.max(axis=0)
+    return Rect(
+        min(max(round(x1), 0), width),
+        min(max(round(y1), 0), height),
+        min(max(round(x2), 0), width),
+        min(max(round(y2), 0), height),
+        rect.score,
+    )
 
 
 def tile_windows(

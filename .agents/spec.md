@@ -8,6 +8,8 @@ Background research: `.agents/research/` (classical CV and services, deep learni
 
 **Revision 2026-10-11.** Four hand-labeled pages are too few to tune on. Every stage is now tuned on public datasets and synthetic pages (section 6, "Tuning on public data"): `yolox` and `cnn` get fine-tuned weights, and the `*Params` of every stage are chosen by a search on a validation split. The 4 samples, the external set and any page the user adds are **evaluation only**. This brings forward the fine-tuning that was planned for after the default-pipeline checkpoint.
 
+**Revision 2026-10-12.** A stage 0 turns each page upright before locate (§6 "Stage 0: upright page"): deskew up to ±10° ([#44](https://github.com/martinnbejarano/checkbox-detection/issues/44)), then quarter and half turns ([#45](https://github.com/martinnbejarano/checkbox-detection/issues/45)). Boxes still come back in the original image's coordinates. The tilted and turned samples (`sample-00N-rot*`) join the golden tests.
+
 ---
 
 ## 1. Goal
@@ -86,7 +88,8 @@ api/routes.py ── reads bytes, enforces body limit, reads ?labels
 imaging/  ───── bytes → list[Page]      (sniff format, decode or rasterize, validate, EXIF, keep native gray/color)
    │
    ▼
-detection/ ──── Pipeline.run(page) → list[Box], then Pipeline.label(page, boxes) if labels   (pure NumPy/OpenCV/onnxruntime; no FastAPI, no I/O)
+detection/ ──── Pipeline.straighten(page) → Upright, then run / label on it, then boxes back to the original   (pure NumPy/OpenCV/onnxruntime; no FastAPI, no I/O)
+   │              0. straighten(page)                  → Upright             turn the page upright (§6 stage 0)
    │              1. Locator.locate(page)              → list[Rect]          where are the boxes
    │              2. StateClassifier.classify(page, …) → list[(bool, score)] is each one checked
    │              3. RapidOcrLabeler.label(page, …)    → list[str | None]   what does it say (only if labels)
@@ -189,6 +192,8 @@ checkbox-detection/
     │       ├── types.py      # Rect, Box
     │       ├── geometry.py   # iou(), nms(), sort_reading_order(), tile_windows()
     │       ├── binarize.py   # to_clean_gray(), binarize(); shared by the OpenCV locator and fill_ratio
+    │       ├── deskew.py     # stage 0: Upright, DeskewParams, deskew() by projection profile
+    │       ├── orient.py     # stage 0: OrientParams, quarter and half turns with RapidOCR
     │       ├── onnx.py       # load_session(path, threads): fails fast if the file is missing
     │       ├── locate/       # stage 1
     │       │   ├── __init__.py   # Locator Protocol
@@ -218,6 +223,8 @@ checkbox-detection/
         ├── test_locate.py    # unit: scale grid, gray vs RGB, table lines, tile edges
         ├── test_classify.py  # unit: one case per mark class, ambiguous → unchecked
         ├── test_label.py     # unit: strip geometry + one real OCR read
+        ├── test_deskew.py    # unit: tilt angle on synthetic pages, upright page untouched
+        ├── test_orient.py    # unit: samples turned 90°/180°/270° come back upright
         ├── test_geometry.py  # pure
         ├── test_imaging.py   # decode rules
         └── test_evaluate.py  # pure: matching and label normalization
@@ -268,6 +275,7 @@ Checks run in this order, cheapest first. Each failure raises an `imaging.errors
 
 | Stage | Implementations (config name) | Module |
 |---|---|---|
+| 0. Upright page | projection-profile deskew, then RapidOCR quarter and half turns (always on) | `deskew.py`, `orient.py` |
 | 1. Locate | `opencv` (baseline, no weights) · `yolox` (`nutrientdocs/form-field-v1-nano`, Apache-2.0, fine-tuned) | `locate/opencv.py`, `locate/yolox.py` |
 | 2. Classify state | `fill_ratio` (no weights) · `cnn` (`nutrientdocs/form-field-v1-state`, Apache-2.0, fine-tuned) | `classify/fill_ratio.py`, `classify/state_cnn.py` |
 | 3. Label | RapidOCR recognition only, run only when `labels=true` | `label.py` |
@@ -304,6 +312,52 @@ How this is verified:
 
 - Synthetic tests draw boxes from 10 px to 100 px on the same page.
 - `evaluate.py --scales 0.5,1,1.5` resizes every sample and runs the evaluation again, for every combo. End-to-end accuracy must not drop by more than a few points across scales. The README reports this table.
+
+### Stage 0: upright page (`deskew.py`, `orient.py`)
+
+([deskew ticket](https://github.com/martinnbejarano/checkbox-detection/issues/44), [orientation ticket](https://github.com/martinnbejarano/checkbox-detection/issues/45))
+
+Before locate, the page is turned upright; after label, every box goes back to the **original** image's coordinates. The API contract (§2) and the frontend do not change. It always runs, for images and PDF pages, with every locator; there is no setting and no log field.
+
+Why: measured on the 4 samples tilted 2°–5° and turned 90°. Tilt leaves yolox+cnn boxes intact but drops labels to 55–63% (the label strip is horizontal) and breaks the OpenCV locator (recall 0–51%; it looks for axis-aligned squares). A quarter turn drops yolox recall to 31–86% and labels to 0%. With the page made upright in a prototype, all of them return to within about a box of the upright originals.
+
+```python
+@dataclass(frozen=True, slots=True)
+class Upright:
+    image: np.ndarray        # the page as the stages see it
+    to_original: np.ndarray  # 2×3 affine, upright pixels → original pixels
+
+    def boxes_to_original(self, boxes: list[Box]) -> list[Box]: ...
+```
+
+Callers (`routes.detect`, `scripts/evaluate.py`):
+
+```python
+upright = pipeline.straighten(page.image)
+boxes = pipeline.run(upright.image)
+if labels:
+    boxes = pipeline.label(upright.image, boxes)
+boxes = upright.boxes_to_original(boxes)
+```
+
+- `straighten` is a separate call, like `label`, so `run` and `label` keep their signatures and `label` reads the same straightened image without straightening twice.
+- A box goes back as the axis-aligned box around its 4 mapped corners, clamped to the page (the ground truth of the tilted samples is drawn the same way). The order from `run` is kept: reading order is decided on the upright page.
+- The steps compose into one matrix, in this order: **quarter turn → deskew → upside down**. Upside-down detection on a page that is still tilted misfires (53–60% "180" votes on upright tilted pages), so it runs after deskew.
+
+**Deskew** (`deskew.py`, `DeskewParams`, ticket 44): projection profile.
+
+- Clean gray page (`binarize.to_clean_gray`), shrunk to `work_px` 1000 on its long side, binarized.
+- Rotate the small binary page over ±`max_angle` 10° in `step` 0.25° steps; for each angle, sum the ink of each row. Rows of text and rules give peaks and gaps when they are level, a flat profile when tilted. The angle with the highest variance wins. Angles are tried from 0 outward and only a strictly higher variance replaces the best, so a blank page stays at 0.
+- Below `min_angle` 0.3° the page is returned unchanged (no warp). Otherwise it is rotated on a canvas enlarged to fit the whole page, filled with white, so no corner box is lost.
+- Prototype: exact angle on all 4 tilted samples, about 40 ms per page plus the warp. Hough on form rules was as precise but 10× slower and needs ruled pages; text-line angles from OCR were not measured.
+
+**Quarter and half turns** (`orient.py`, `OrientParams`, ticket 45): RapidOCR, the same instance as the labeler.
+
+- Quarter turn: text detection on the clean gray page shrunk to 1600 px. If most detected lines are taller than wide, rotate 90°. Always the same direction: a page that ends up upside down is fixed by the next step. Prototype: 95–98% tall lines on turned pages, 0–3% on upright ones.
+- Upside down: the 10 widest lines are recognized as they are and turned 180°; if the turned crops score higher on average, rotate 180°. Prototype: right on all 38 cases (19 upright samples and their 180° turns), score margin ≥ 0.36. The angle classifier bundled with RapidOCR was rejected: its vote margin was thin (0.33 upright vs 0.70 turned).
+- Fewer than `min_lines` 5 text lines → no turn.
+- Latency: the prototype costs about 850 ms per page on an M4, paid by every request. The recognition crops are batched; the PR reports p50/p95.
+- Not handled: perspective (phone photos), tilt beyond ±10° that is not a quarter turn.
 
 ### Stage 1a: OpenCV locator (`locate/opencv.py`)
 
@@ -492,7 +546,9 @@ Fakes: only to force a failure the real code can't produce on demand (the 500 pa
 | `test_locate.py` | Unit | For each locator: synthetic pages, as grayscale and as RGB (same boxes expected); box sides 10–100 px on pages 1000–5000 px wide (yolox: only the box sizes the model sees, bbox within ±8% of side); bbox within ±3 px or ±5% of side; text-only page → `[]`. OpenCV: box touching a table line, colour overlays. YOLOX: red overlay ignored, box across a tile border found once. YOLOX has no table-line logic of its own, so that case is not tested for it. |
 | `test_classify.py` | Unit | For each classifier, one case per class: empty, X, ✓, filled, stray stroke crossing the box (`fill_ratio` only; the CNN calls it checked), near-threshold or ambiguous score → unchecked. |
 | `test_label.py` | Unit | `cv2.putText("Urban")` right of a drawn box → "Urban"; nothing to the right → `None`; the strip stops at the next box on the row and at the page edge. |
-| `test_geometry.py` | Pure | `iou`, `nms` (nested and cross-tile duplicates), reading order, `tile_windows` covers the page with overlap. |
+| `test_deskew.py` | Unit | A synthetic page rotated −7°, −2°, +3°, +8° → angle within 0.25°; an upright page → 0 and the same array back. |
+| `test_orient.py` | Unit | A sample turned 90°, 180°, 270° in the test → upright; an upright sample and a page with no text → unchanged. |
+| `test_geometry.py` | Pure | `iou`, `nms` (nested and cross-tile duplicates), reading order, `tile_windows` covers the page with overlap, a rect mapped back through a known turn + tilt → its expected corners. |
 | `test_imaging.py` | Unit | PNG/JPEG/TIFF/WEBP decode; gray stays 2-D, RGBA on white, 16-bit gray rescaled; EXIF rotation; truncated → `CorruptInput`; non-image → `UnsupportedFormat`; pixel cap before decode. |
 | `test_evaluate.py` | Pure | Greedy one-to-one IoU matching on hand-made boxes; label normalization. |
 
