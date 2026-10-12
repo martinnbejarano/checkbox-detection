@@ -8,8 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="CHECKBOX_")
 
-    locator: str = "opencv"
-    classifier: str = "fill_ratio"
+    locator: str = "yolox"
+    classifier: str = "cnn"
     models_dir: Path = Path("models")
     onnx_threads: int = 1
     max_upload_bytes: int = 20 * 1024 * 1024

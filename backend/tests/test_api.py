@@ -39,9 +39,9 @@ def test_detect_returns_empty_and_checked_box() -> None:
     assert [b.keys() for b in boxes] == [{"bbox", "is_checked", "page", "score"}] * 2
     assert [b["is_checked"] for b in boxes] == [False, True]
     assert [b["page"] for b in boxes] == [0, 0]
-    assert [b["score"] for b in boxes] == [1.0, 1.0]  # the OpenCV locator has no confidence
+    assert all(0 < b["score"] <= 1 for b in boxes)
     for box, expected in zip(boxes, ([200, 400, 250, 450], [600, 400, 650, 450]), strict=True):
-        assert np.allclose(box["bbox"], expected, atol=3)
+        assert np.allclose(box["bbox"], expected, atol=5)
 
 
 def test_labels_true_adds_label_to_each_box() -> None:
@@ -79,7 +79,9 @@ def test_unknown_stage_name_fails_at_startup(settings: Settings, message: str) -
 
 
 @pytest.mark.parametrize(
-    "settings", [Settings(locator="yolox"), Settings(classifier="cnn")], ids=["yolox", "cnn"]
+    "settings",
+    [Settings(classifier="fill_ratio"), Settings(locator="opencv")],
+    ids=["yolox", "cnn"],
 )
 def test_missing_model_file_fails_at_startup(settings: Settings, tmp_path: Path) -> None:
     settings = settings.model_copy(update={"models_dir": tmp_path})

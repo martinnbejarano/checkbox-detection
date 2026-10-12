@@ -272,7 +272,7 @@ Checks run in this order, cheapest first. Each failure raises an `imaging.errors
 | 2. Classify state | `fill_ratio` (no weights) · `cnn` (`nutrientdocs/form-field-v1-state`, Apache-2.0, fine-tuned) | `classify/fill_ratio.py`, `classify/state_cnn.py` |
 | 3. Label | RapidOCR recognition only, run only when `labels=true` | `label.py` |
 
-Any locator works with any classifier. The default pair is chosen at the [default-pipeline checkpoint](https://github.com/martinnbejarano/checkbox-detection/issues/22) from the evaluation tables; until then the default is `opencv` + `fill_ratio`, which needs no model files.
+Any locator works with any classifier. The default pair is chosen at the [default-pipeline checkpoint](https://github.com/martinnbejarano/checkbox-detection/issues/22) from the evaluation tables: `yolox` + `cnn`, both fine-tuned (`.agents/research/tuning-results.md`). `opencv` + `fill_ratio` stays as the baseline that needs no model files.
 
 Rejected after a zero-shot probe on the samples (details in the research note): Docling layout (640 px squashed input, box covers checkbox plus label, state often wrong), FFDNet S/L (AGPL, misses checked boxes, L finds nothing on 3 of 4 samples), `wendys-llc/checkbox-detector` (AGPL in practice, low checked recall). The README lists them under alternatives.
 
@@ -527,12 +527,12 @@ Fakes: only to force a failure the real code can't produce on demand (the 500 pa
 
 ## 10. Configuration (`config.py`)
 
-`Settings(BaseSettings)`, env prefix `CHECKBOX_`. The defaults run with no env vars and no model files.
+`Settings(BaseSettings)`, env prefix `CHECKBOX_`. The defaults run with no env vars; the fine-tuned model files they load are committed in `backend/models/`.
 
 | Setting | Default |
 |---|---|
-| `locator` | `"opencv"` (`"yolox"` needs model files) |
-| `classifier` | `"fill_ratio"` (`"cnn"` needs model files) |
+| `locator` | `"yolox"` (`"opencv"` needs no model files) |
+| `classifier` | `"cnn"` (`"fill_ratio"` needs no model files) |
 | `models_dir` | `models` (relative to `backend/`); `/app/models` in the Docker image |
 | `onnx_threads` | 1 |
 | `max_upload_bytes` | 20 MiB |
