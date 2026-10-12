@@ -35,7 +35,7 @@ export function Detections({ items, active, onHover, onSelect }: Props) {
             onClick={() => onSelect(id)}
           >
             <span className="row-index">{i + 1}</span>
-            <span className="row-icon">{box.is_checked ? <CheckedIcon /> : <UncheckedIcon />}</span>
+            <span className="row-icon" data-state={box.is_checked ? 'checked' : 'unchecked'}>{box.is_checked ? <CheckedIcon /> : <UncheckedIcon />}</span>
             <span className="row-label">
               {box.label ? box.label : <span className="no-label">Label not detected</span>}
             </span>

@@ -17,7 +17,7 @@ export function Reader() {
     <figure
       className="reader"
       role="img"
-      aria-label="A looping animation in ink dots: a photographed form arrives tilted, straightens, its checkboxes light up in blue row by row, and nine of them lift off with their labels and settle into a list that reads each one as checked or unchecked."
+      aria-label="A looping animation in ink dots: a photographed form arrives tilted, straightens, its checkboxes light up row by row, green when checked and red when not, and nine of them lift off with their labels and settle into a list that reads each one as checked or unchecked."
     >
       <canvas ref={canvas} aria-hidden="true" />
       {/* Status, not controls: the current step of the loop. */}

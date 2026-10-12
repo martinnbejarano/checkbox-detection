@@ -230,7 +230,7 @@ function buildPoints(form: ReturnType<typeof buildForm>) {
     const pair = bi < PAIRS ? bi : -1
     for (let i = 0; i < PER_BOX; i++) {
       const [x, y] = per(i, PER_BOX)
-      add(x, y, { kind: 1, a: 0.95, box: bi, pair })
+      add(x, y, { kind: 1, a: 0.95, box: bi, pair, checked: b.checked })
     }
     const lines = 5
     for (let i = 0; i < HATCH; i++) {
@@ -297,11 +297,16 @@ const ICON = 0.0275
 const FS = { label: 0.035, state: 0.03125, idx: 0.0287, head: 0.0475 }
 const FONT = '"Archivo Variable", -apple-system, sans-serif'
 const INK = [26, 27, 24]
-const PEN = [15, 103, 173]
-const PAL = Array.from({ length: 9 }, (_, i) => {
-  const k = i / 8
-  return `rgb(${INK.map((c, j) => Math.round(c + (PEN[j] - c) * k)).join(',')})`
-})
+const CHECKED = '#16a34a'
+const UNCHECKED = '#dc2626'
+// Ink to the box's state color in 9 steps, as a box lights up.
+const palette = (to: number[]) =>
+  Array.from({ length: 9 }, (_, i) => {
+    const k = i / 8
+    return `rgb(${INK.map((c, j) => Math.round(c + (to[j] - c) * k)).join(',')})`
+  })
+const PAL_CHECKED = palette([22, 163, 74])
+const PAL_UNCHECKED = palette([220, 38, 38])
 
 const mixPose = (A: Pose, B: Pose, k: number) => A.map((v, i) => v + (B[i] - v) * k)
 function poseMatrix([rz, rx, ry, s, tx, ty, tz]: Pose) {
@@ -537,7 +542,7 @@ export function startReader(canvas: HTMLCanvasElement, steps: HTMLLIElement[]): 
       project(x, y, z)
       const size = (col > 0.5 ? 1.55 : 1.35) * o[2] ** 1.6 * shrink
       ctx.globalAlpha = al * clamp(0.55 + (o[2] - 0.8) * 1.5, 0.35, 1)
-      ctx.fillStyle = PAL[Math.round(col * 8)]
+      ctx.fillStyle = (p.checked ? PAL_CHECKED : PAL_UNCHECKED)[Math.round(col * 8)]
       ctx.fillRect(o[0] - size / 2, o[1] - size / 2, size, size)
     }
 
@@ -598,7 +603,7 @@ export function startReader(canvas: HTMLCanvasElement, steps: HTMLLIElement[]): 
           if (k) ctx.lineTo(o[0], o[1])
           else ctx.moveTo(o[0], o[1])
         })
-      ctx.strokeStyle = '#0f67ad'
+      ctx.strokeStyle = b.checked ? CHECKED : UNCHECKED
       ctx.lineWidth = 1.5
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'

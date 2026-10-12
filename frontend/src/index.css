@@ -1,7 +1,8 @@
 /*
  * Galley proof: the service reads the form the way a corrector reads a proof. Every box gets a
- * pencil mark on the page and a numbered note in the margin. One blue pencil marks detections and
- * a vermilion one flags low-confidence boxes where a human should look again. Everything else is ink.
+ * mark on the page and a numbered note in the margin: green when checked, red when not, and orange
+ * where the confidence is low and a human should look again. Blue is the corrector's pencil for
+ * focus and the links between a note and its box. Everything else is ink.
  */
 :root {
   --paper: #eef0ec;
@@ -13,19 +14,21 @@
   --ink-2: #4a4e46;
   --ink-3: #61655d;
 
-  /* The blue end of the corrector's pencil: every detection mark, and nothing else. 3:1+ on white. */
+  /* The corrector's pencil: focus, the active box and the leader line to its note. */
   --pencil: #0f67ad;
   --pencil-soft: rgb(15 103 173 / 0.09);
-  /* Checked reads by its hatch alone, without hue. */
+  /* Box states, each 3:1+ on white. Checked also reads by its hatch alone, without hue. */
+  --checked: #16a34a;
+  --unchecked: #dc2626;
   --hatch: repeating-linear-gradient(
     135deg,
-    rgb(15 103 173 / 0.62) 0 1.5px,
-    rgb(15 103 173 / 0.16) 1.5px 4px
+    rgb(22 163 74 / 0.7) 0 1.5px,
+    rgb(22 163 74 / 0.18) 1.5px 4px
   );
-  /* The vermilion end: low-confidence queries only. */
-  --query: #cc4410;
-  --query-text: #a5360b;
-  --query-soft: #fbeae1;
+  /* Orange: low-confidence boxes, and errors. */
+  --query: #d97706;
+  --query-text: #b45309;
+  --query-soft: #fff6e8;
 
   --radius: 3px;
   --shadow-sheet: 0 1px 1px rgb(26 27 24 / 0.08), 0 10px 28px -10px rgb(26 27 24 / 0.28);
@@ -244,13 +247,13 @@ figure {
 
 .legend [data-state='checked']::before,
 .box[data-state='checked'] {
-  border: 2px solid var(--pencil);
+  border: 2px solid var(--checked);
   background: var(--hatch);
 }
 
 .legend [data-state='unchecked']::before,
 .box[data-state='unchecked'] {
-  border: 2px solid var(--pencil);
+  border: 2px solid var(--unchecked);
 }
 
 .legend [data-state='uncertain']::before {
@@ -574,7 +577,11 @@ li:last-child > .row {
 
 .row-icon {
   display: grid;
-  color: var(--pencil);
+  color: var(--unchecked);
+}
+
+.row-icon[data-state='checked'] {
+  color: var(--checked);
 }
 
 .row-label {
@@ -1112,7 +1119,7 @@ li:last-child > .row {
   }
 
   .sheet .box[data-state='checked'] {
-    background: rgb(15 103 173 / 0.3);
+    background: rgb(22 163 74 / 0.3);
   }
 
   .ruler-label {
