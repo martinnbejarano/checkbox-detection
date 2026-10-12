@@ -858,6 +858,88 @@ li:last-child > .row {
   margin-top: 18px;
 }
 
+/* Sample pages: four small sheets of paper under the drop target, for a reviewer without a form at hand. */
+.samples {
+  display: grid;
+  gap: 12px;
+  width: min(460px, 100%);
+  margin-top: 22px;
+}
+
+.samples h2 {
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 400;
+}
+
+.samples ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sample {
+  display: grid;
+  justify-items: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sample:disabled {
+  cursor: progress;
+}
+
+.sample:focus-visible {
+  outline-offset: 6px;
+}
+
+.sample-sheet {
+  position: relative;
+  width: 52px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+  transition: translate 260ms var(--ease);
+}
+
+.sample-sheet img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 17 / 22;
+  object-fit: cover;
+  object-position: top;
+}
+
+.sample:not(:disabled):hover .sample-sheet {
+  translate: 0 -3px;
+}
+
+.sample:not(:disabled):active .sample-sheet {
+  translate: 0 -1px;
+}
+
+.sample-form {
+  font-size: 13px;
+  font-weight: 650;
+  font-stretch: 108%;
+}
+
+
+.samples-error {
+  color: var(--query-text);
+  font-size: 12.5px;
+}
+
 .drop-overlay {
   position: fixed;
   inset: 10px;
@@ -1045,7 +1127,8 @@ li:last-child > .row {
   }
 
   .crop,
-  .ruler-mark {
+  .ruler-mark,
+  .sample-sheet {
     transition: none;
   }
 

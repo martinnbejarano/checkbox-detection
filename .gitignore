@@ -11,3 +11,5 @@ __pycache__/
 /backend/training/runs/
 .DS_Store
 .impeccable/
+.agents/
+.claude/

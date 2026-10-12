@@ -73,7 +73,6 @@ class Pipeline:
         return upright
 
 
-# Each constructor takes (models_dir, onnx_threads); the ONNX stages use them.
 LOCATORS: dict[str, Callable[[Path, int], Locator]] = {
     "opencv": lambda models_dir, threads: OpenCVLocator(),
     "yolox": YoloxLocator,

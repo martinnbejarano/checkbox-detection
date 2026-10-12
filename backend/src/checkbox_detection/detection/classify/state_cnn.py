@@ -21,15 +21,13 @@ MEAN, STD = 0.5, 0.5  # the model's input normalisation, on pixels scaled to 0-1
 
 @dataclass(frozen=True, slots=True)
 class StateCnnParams:
-    # Checked on the validation split, true boxes (training/train_cnn.py tune): state accuracy
-    # 0.982 with these, against 0.955 for the pretrained model at its best setting. Boxes whose
-    # mark the clean gray erases (colour ticks) are left out of both. Neither value moved: no
-    # other candidate gains 0.5 points (the rule in training/search.py).
+    # Tuned on validation by training/train_cnn.py tune;
+    # results in .agents/research/tuning-results.md.
     # The crop reaches this share of the side past each box edge, so a border a locator cut a few
-    # px short is still whole (0 to 0.15 tried, within 0.6 points).
+    # px short is still whole.
     pad_frac: float = 0.05
     # P(filled) above this means checked: the model's own 0.5 plus a 0.2 margin, so an ambiguous
-    # score resolves to unchecked (0.5 to 0.95 tried, all within 0.4 points).
+    # score resolves to unchecked.
     threshold: float = 0.7
 
 

@@ -23,19 +23,16 @@ CHOICE_BUTTON = 1  # classes: 0 Text, 1 ChoiceButton, 2 Signature
 
 @dataclass(frozen=True, slots=True)
 class YoloxParams:
-    # Checked on the validation split with the fine-tuned model, by detection F2 at IoU 0.5
-    # (training/train_yolox.py tune, 200 pages): 0.942 with these, against 0.779 for the
-    # pretrained model with the same values. No other tile_frac x score_threshold gains 0.5 points.
+    # Tuned on validation by training/train_yolox.py tune;
+    # results in .agents/research/tuning-results.md.
     # Tile side as a fraction of the page width (1530 px on a 2550 px page); each tile is shrunk
     # to 640 px, so this sets how big a box looks to the model. Width, not the short edge, so a
-    # wide crop is not cut into tiles that blow its boxes up. The fine-tuned model scores F2
-    # 0.930-0.946 from 0.5 to 1.0 (the pretrained one 0.52-0.89), so one tile size is enough.
+    # wide crop is not cut into tiles that blow its boxes up.
     tile_frac: float = 0.6
     # Neighbouring tiles overlap by this fraction of the width, more than the largest allowed box
     # side, so every box is whole in at least one tile.
     overlap_frac: float = 0.08
-    # objectness * ChoiceButton probability below this is dropped. Low, for recall: 0.1-0.3 give
-    # the same recall on validation (0.955); 0.3 is 0.4 points better on F2, not enough to move.
+    # objectness * ChoiceButton probability below this is dropped. Low, for recall.
     score_threshold: float = 0.2
     # The same box found in two tiles overlaps more than this.
     nms_iou: float = 0.3
@@ -81,9 +78,8 @@ class YoloxLocator:
     def _locate_tile(self, gray: np.ndarray, window: tuple[int, int, int, int]) -> list[Rect]:
         x1, y1, x2, y2 = window
         canvas, scale = letterbox(gray[y1:y2, x1:x2])
-        x = np.repeat(canvas[None, None], 3, axis=1).astype(
-            np.float32
-        )  # the model takes 3 channels
+        # The model takes 3 channels.
+        x = np.repeat(canvas[None, None], 3, axis=1).astype(np.float32)
 
         # Rows are [cx, cy, w, h, objectness, p_text, p_choice, p_signature], in 640 px.
         out = self.session.run(None, {self.session.get_inputs()[0].name: x})[0][0]

@@ -29,9 +29,8 @@ from checkbox_detection.detection.classify import fill_ratio
 from checkbox_detection.detection.locate import opencv
 from checkbox_detection.detection.types import Rect
 
-# A first run without it moved max_aspect 1.4 -> 1.25 for 0.1-0.4 points of F2, which halved
-# OpenCV recall on the external set (its boxes are taller glyphs). The rule was added after
-# seeing that; it applies to every field and stage alike.
+# A field moves only when it gains at least this much (0.5 points), in every stage. Why:
+# .agents/research/tuning-results.md, "Choices informed by evaluation data".
 MIN_GAIN = 0.005
 VAL_PAGES = 300  # opencv: a fixed random sample of validation pages
 

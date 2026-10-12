@@ -5,6 +5,14 @@ import { UploadIcon } from './icons'
 import { Reader } from './Reader'
 import { Workspace } from './Workspace'
 
+// Copies of samples/ served from public/ (plus a small .webp preview each), for reviewers without a form at hand.
+const SAMPLES = [
+  { name: 'sample-000', form: '1004' },
+  { name: 'sample-001', form: '1004' },
+  { name: 'sample-002', form: '1004MC' },
+  { name: 'sample-003', form: '1004C' },
+]
+
 export default function App() {
   const [upload, setUpload] = useState<{ file: File; key: number } | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -18,6 +26,21 @@ export default function App() {
     document.startViewTransition(() => flushSync(open))
   }
   const browse = () => input.current?.click()
+  const [loadingSample, setLoadingSample] = useState<string | null>(null)
+  const [sampleFailed, setSampleFailed] = useState(false)
+  const trySample = async (name: string) => {
+    setLoadingSample(name)
+    setSampleFailed(false)
+    try {
+      const response = await fetch(`/samples/${name}.png`)
+      if (!response.ok) throw new Error(response.statusText)
+      choose(new File([await response.blob()], `${name}.png`, { type: 'image/png' }))
+    } catch {
+      setSampleFailed(true)
+    } finally {
+      setLoadingSample(null)
+    }
+  }
 
   const onDragOver = (e: DragEvent) => {
     e.preventDefault()
@@ -59,6 +82,33 @@ export default function App() {
                 Browse files
               </span>
             </button>
+            <section className="samples" aria-labelledby="samples-title">
+              <h2 id="samples-title">No form at hand? Try a sample</h2>
+              <ul>
+                {SAMPLES.map(({ name, form }) => (
+                  <li key={name}>
+                    <button
+                      type="button"
+                      className="sample"
+                      aria-busy={loadingSample === name || undefined}
+                      disabled={loadingSample !== null}
+                      onClick={() => trySample(name)}
+                    >
+                      <span className="sample-sheet">
+                        <img src={`/samples/${name}.webp`} alt="" width={176} height={228} />
+                        {loadingSample === name && <span className="scan" />}
+                      </span>
+                      <span className="sample-form">{form}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {sampleFailed && (
+                <p className="samples-error" role="alert">
+                  The sample couldn't be loaded. Try again.
+                </p>
+              )}
+            </section>
           </div>
           <Reader />
         </main>

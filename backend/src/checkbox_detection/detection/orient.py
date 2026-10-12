@@ -31,7 +31,7 @@ PARAMS = OrientParams()
 
 def quarter_turn(image: np.ndarray) -> Upright:
     """The page turned 90° clockwise."""
-    h, w = image.shape[:2]  # x = y', y = h - x'
+    h, w = image.shape[:2]  # turned (x', y') -> original (x, y) = (y', h - x')
     return Upright(
         cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE), np.array([[0.0, 1, 0], [-1, 0, h]]), (w, h)
     )

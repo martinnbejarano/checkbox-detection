@@ -20,26 +20,23 @@ from checkbox_detection.detection.types import Rect
 
 @dataclass(frozen=True, slots=True)
 class FillParams:
-    # Checked on the validation split, on the true boxes whose state is trusted, by state accuracy
-    # at the best threshold of each try (training/search.py fill): 0.908 with the earlier values,
-    # 0.930 with these. A field moved only where it gained 0.5 points.
+    # Tuned on validation by training/search.py fill;
+    # results in .agents/research/tuning-results.md.
     # Interior = the box shrunk by max(border + border_gap_frac * side, min_margin_frac * side).
-    # Smallest inset, as a share of the side; 0.2 gains 1.3 points over 0.15, 0.1 loses 6.
+    # Smallest inset, as a share of the side.
     min_margin_frac: float = 0.2
     # Gap kept past the measured border, as a share of the side.
     border_gap_frac: float = 0.05
     # Rules longer than this multiple of the side are removed around the box first.
     rule_length_factor: float = 1.5
     # A stroke counts as a mark only when at least this share of its ink is inside the box;
-    # a stray stroke that only crosses the box is mostly outside. 0.5 gains 1.0 point over 0.6 on
-    # validation; 0.7 and 0.8 lose 1-2.
+    # a stray stroke that only crosses the box is mostly outside.
     min_inside_share: float = 0.5
     # Straight runs at least this share of the side are box edges, set apart from the marks.
     edge_length_frac: float = 0.8
     # Interior ink ratio above this means checked: 0.05 plus a 0.02 margin, so an ambiguous ratio
-    # resolves to unchecked. Kept against validation, where 0.02 (the bottom of the tried range)
-    # is 1.6 points more accurate: a 2% speck would then read as checked (spec §6: ambiguous
-    # resolves to unchecked).
+    # resolves to unchecked (spec §6). Kept although validation prefers 0.02, where a 2% speck
+    # would read as checked.
     fill_threshold: float = 0.07
 
 

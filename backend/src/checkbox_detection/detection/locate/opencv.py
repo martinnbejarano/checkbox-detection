@@ -20,9 +20,8 @@ from checkbox_detection.detection.types import Rect
 
 @dataclass(frozen=True, slots=True)
 class OpenCVParams:
-    # The shape thresholds were checked on the validation split by detection F2 at IoU 0.5 (recall
-    # weighs 4x precision; training/search.py opencv): 0.748 with the earlier values, 0.810 with
-    # these. A field moved only where it gained 0.5 points; the rest kept their earlier values.
+    # Shape thresholds tuned on validation by training/search.py opencv;
+    # results in .agents/research/tuning-results.md.
     # The size extremes and the upscale rule are scale rules (spec §6), not tuned.
     # Below this side a shape is noise and its state cannot be read.
     min_side_px: int = 8
@@ -33,25 +32,22 @@ class OpenCVParams:
     max_aspect: float = 1.4
     # approxPolyDP tolerance as a fraction of the contour perimeter.
     poly_epsilon_frac: float = 0.05
-    # Contour area / bbox area; a rectangle is close to 1, glyphs like "O" are lower. 0.85 gains
-    # 2.4 points over 0.8 on validation.
+    # Contour area / bbox area; a rectangle is close to 1, glyphs like "O" are lower.
     min_rectangularity: float = 0.85
     # With 4 vertices and at least this rectangularity a candidate is confident; glyphs such as
     # "D" or "0" reach about 0.84 and stay weak.
     confident_rectangularity: float = 0.86
-    # A confident candidate also has a thin border: at most this share of its side. 0.15 gains
-    # 1.8 points over 0.11 on validation; 0.08 loses 8.
+    # A confident candidate also has a thin border: at most this share of its side.
     # ponytail: 0.15 is the top of the tried range; try higher when the validation data grows.
     max_confident_border_frac: float = 0.15
     # Hollow: the contour's holes cover at least this share of its bbox. An X or a fill with a
-    # gap leaves holes; a solid blob or a thick glyph does not. 0.35 gains 1.3 points over 0.25.
+    # gap leaves holes; a solid blob or a thick glyph does not.
     min_hole_frac: float = 0.35
     # Rules are erased when longer than this multiple of the largest allowed box side, so box
     # edges survive.
     line_length_factor: float = 1.5
     # Weak candidates (not confident) are kept only within this band around the median side of
-    # the confident ones. (0.85, 1.2) gains 0.8 points over (0.75, 1.33) on validation; (0.6, 1.5)
-    # loses 3.7.
+    # the confident ones.
     median_band: tuple[float, float] = (0.85, 1.2)
     # Fewer confident candidates than this cannot set the median, and weak ones are dropped.
     min_confident: int = 5

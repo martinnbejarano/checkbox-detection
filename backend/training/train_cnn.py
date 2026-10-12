@@ -35,9 +35,8 @@ STATE_URL = "https://huggingface.co/nutrientdocs/form-field-v1-state/resolve/62b
 EDGE_JITTER = 0.1
 CROPS_PER_BOX = 3  # jittered copies per training box
 PAD_FRACS = (0.0, 0.05, 0.1, 0.15)  # StateCnnParams.pad_frac candidates; training draws from them
-ERASED_INK = (
-    0.03  # interior ink share: below it in clean gray but above it in plain gray = erased mark
-)
+# Interior ink share: below it in clean gray but above it in plain gray = erased mark.
+ERASED_INK = 0.03
 SPECK_SHARE = 0.5  # empty training crops that get 1-3 specks of dust or toner
 THRESHOLDS = np.round(np.arange(0.5, 0.96, 0.05), 2)  # StateCnnParams.threshold candidates
 
@@ -67,7 +66,7 @@ def state_cnn() -> nn.Sequential:
         block(192, 192, 1),
         nn.AdaptiveAvgPool2d(1),
         nn.Flatten(),
-        nn.Dropout(0.2),  # index 10: no weights; the ONNX graph has none (inference)
+        nn.Dropout(0.2),  # no weights; keeps the Linear at index 11, as in state_cnn.pt's keys
         nn.Linear(192, 2),
     )
 
