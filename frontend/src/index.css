@@ -1,37 +1,47 @@
+/*
+ * Galley proof: the service reads the form the way a corrector reads a proof. Every box gets a
+ * pencil mark on the page and a numbered note in the margin. One blue pencil marks detections and
+ * a vermilion one flags low-confidence boxes where a human should look again. Everything else is ink.
+ */
 :root {
-  --bg: #fbfbfc;
-  --surface: #ffffff;
-  --canvas: #f1f1f4;
-  --line: #e4e4e9;
-  --line-strong: #d4d4db;
-  --text: #17171c;
-  --text-2: #5c5c68;
-  --text-3: #8a8a96;
-  --accent: #2563eb;
-  --accent-soft: #eef3ff;
+  --paper: #eef0ec;
+  --desk: #d9ddd5;
+  --sheet: #ffffff;
+  --rule: #d2d6ce;
+  --rule-strong: #b3b8ad;
+  --ink: #1a1b18;
+  --ink-2: #4a4e46;
+  --ink-3: #61655d;
 
-  /* Box states: graphics need 3:1 on white, the text tones 4.5:1. */
-  --checked: #16a34a;
-  /* Strong enough that checked vs unchecked reads by fill alone, without hue. */
-  --checked-soft: rgb(22 163 74 / 0.3);
-  --unchecked: #dc2626;
-  --uncertain: #ea8a0c;
-  --uncertain-text: #b45309;
-  --uncertain-soft: #fff6e8;
+  /* The blue end of the corrector's pencil: every detection mark, and nothing else. 3:1+ on white. */
+  --pencil: #0f67ad;
+  --pencil-soft: rgb(15 103 173 / 0.09);
+  /* Checked reads by its hatch alone, without hue. */
+  --hatch: repeating-linear-gradient(
+    135deg,
+    rgb(15 103 173 / 0.62) 0 1.5px,
+    rgb(15 103 173 / 0.16) 1.5px 4px
+  );
+  /* The vermilion end: low-confidence queries only. */
+  --query: #cc4410;
+  --query-text: #a5360b;
+  --query-soft: #fbeae1;
 
-  --radius: 8px;
-  --shadow-sheet: 0 1px 2px rgb(23 23 28 / 0.06), 0 8px 24px -6px rgb(23 23 28 / 0.12);
+  --radius: 3px;
+  --shadow-sheet: 0 1px 1px rgb(26 27 24 / 0.08), 0 10px 28px -10px rgb(26 27 24 / 0.28);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
-  font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Archivo Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   line-height: 1.45;
-  color: var(--text);
-  background: var(--bg);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--paper);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  accent-color: var(--accent);
+  accent-color: var(--pencil);
+  caret-color: var(--pencil);
 }
 
 *,
@@ -46,22 +56,23 @@ body {
 
 h1,
 h2,
-p {
+p,
+figure {
   margin: 0;
 }
 
 ::selection {
-  background: rgb(37 99 235 / 0.18);
+  background: rgb(15 103 173 / 0.2);
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--pencil);
   outline-offset: 2px;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-color: var(--rule-strong) transparent;
 }
 
 .sr-only {
@@ -74,7 +85,7 @@ p {
 }
 
 .muted {
-  color: var(--text-3);
+  color: var(--ink-3);
 }
 
 /* ---------- Shell ---------- */
@@ -88,7 +99,7 @@ p {
 .file {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
   margin-right: auto;
 }
@@ -97,12 +108,12 @@ p {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 500;
+  font-weight: 650;
+  font-stretch: 108%;
 }
 
 .file-meta {
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
   white-space: nowrap;
 }
 
@@ -114,39 +125,37 @@ p {
   gap: 7px;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--text);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink);
   font: inherit;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 1px 1px rgb(23 23 28 / 0.04);
   transition:
     background-color 150ms var(--ease),
-    border-color 150ms var(--ease);
+    color 150ms var(--ease);
 }
 
 .button:hover {
-  background: #f6f6f8;
-  border-color: #c4c4cc;
+  background: var(--paper);
 }
 
 .button:active {
-  background: #efeff2;
+  background: var(--desk);
 }
 
 .button.primary {
-  height: 38px;
-  padding: 0 16px;
-  border-color: var(--text);
-  background: var(--text);
-  color: #fff;
+  height: 40px;
+  padding: 0 18px;
+  background: var(--ink);
+  color: var(--sheet);
+  font-stretch: 108%;
 }
 
 .button.primary:hover {
-  background: #2c2c33;
+  background: #33352f;
 }
 
 .icon-button {
@@ -155,19 +164,19 @@ p {
   width: 28px;
   height: 28px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: transparent;
-  color: var(--text-2);
+  color: var(--ink-2);
   cursor: pointer;
 }
 
 .icon-button:hover:not(:disabled) {
-  background: #ececf0;
-  color: var(--text);
+  background: var(--desk);
+  color: var(--ink);
 }
 
 .icon-button:disabled {
-  color: var(--line-strong);
+  color: var(--rule-strong);
   cursor: default;
 }
 
@@ -186,18 +195,18 @@ p {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--canvas);
-  border-right: 1px solid var(--line);
+  background: var(--desk);
+  border-right: 1px solid var(--rule-strong);
 }
 
 .viewer-bar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
   height: 52px;
   padding: 0 10px 0 18px;
-  border-bottom: 1px solid var(--line);
-  background: rgb(241 241 244 / 0.9);
+  border-bottom: 1px solid var(--rule-strong);
+  background: var(--paper);
   flex: none;
 }
 
@@ -205,8 +214,7 @@ p {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* Lives in the bar, never over the document, so it can't hide a box. */
@@ -216,7 +224,7 @@ p {
   margin: 0;
   padding: 0;
   list-style: none;
-  color: var(--text-2);
+  color: var(--ink-2);
   font-size: 12.5px;
   white-space: nowrap;
 }
@@ -232,54 +240,136 @@ p {
   content: '';
   width: 11px;
   height: 11px;
-  border-radius: 2px;
 }
 
 .legend [data-state='checked']::before,
 .box[data-state='checked'] {
-  border: 2px solid var(--checked);
-  background: var(--checked-soft);
+  border: 2px solid var(--pencil);
+  background: var(--hatch);
 }
 
 .legend [data-state='unchecked']::before,
 .box[data-state='unchecked'] {
-  border: 2px solid var(--unchecked);
+  border: 2px solid var(--pencil);
 }
 
 .legend [data-state='uncertain']::before {
-  border: 2px dashed var(--uncertain);
+  border: 2px dashed var(--query);
 }
 
-/* Low confidence redraws only the border, so a checked box keeps its fill. */
+/* Low confidence redraws only the border, so a checked box keeps its hatch. */
 .box[data-uncertain] {
   border-style: dashed;
-  border-color: var(--uncertain);
+  border-color: var(--query);
 }
 
 .viewer-canvas {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 28px 32px;
+  padding: 20px 32px 32px 18px;
 }
 
 .viewer-note {
   max-width: 36ch;
   margin: 64px auto;
-  color: var(--text-2);
+  color: var(--ink-2);
   text-align: center;
 }
 
-/* ---------- Document sheet and boxes ---------- */
+/* ---------- Document sheet, rulers and boxes ---------- */
+
+/* Rulers count the bbox space in pixels, so any box's coordinates can be read off the edges. */
+.sheet-frame {
+  --ruler: 26px;
+  position: relative;
+  max-width: calc(980px + var(--ruler));
+  margin: 0 auto;
+  padding: var(--ruler) 0 0 var(--ruler);
+}
+
+.ruler {
+  position: absolute;
+  color: var(--ink-3);
+  font-size: 9.5px;
+  line-height: 1;
+  background-repeat: no-repeat;
+}
+
+.ruler-x {
+  top: 0;
+  right: 0;
+  left: var(--ruler);
+  height: var(--ruler);
+  background-image: repeating-linear-gradient(to right, var(--rule-strong) 0 1px, transparent 1px var(--tick-x));
+  background-size: 100% 6px;
+  background-position: bottom;
+}
+
+.ruler-y {
+  top: var(--ruler);
+  bottom: 0;
+  left: 0;
+  width: var(--ruler);
+  background-image: repeating-linear-gradient(to bottom, var(--rule-strong) 0 1px, transparent 1px var(--tick-y));
+  background-size: 6px 100%;
+  background-position: right;
+}
+
+.ruler-label {
+  position: absolute;
+}
+
+.ruler-x .ruler-label {
+  bottom: 9px;
+  left: var(--at);
+  padding-left: 3px;
+  border-left: 1px solid var(--ink-3);
+}
+
+/* Set along the ruler, like a printed one, so long numbers never outgrow its width. */
+.ruler-y .ruler-label {
+  top: var(--at);
+  right: 8px;
+  padding-top: 3px;
+  border-top: 1px solid var(--ink-3);
+  writing-mode: vertical-rl;
+}
+
+/* The loaded page sits in crop marks, like the blank sheet it was dropped on. */
+.sheet .crop {
+  border-color: var(--rule-strong);
+}
+
+/* The active box's extent, projected onto both rulers. */
+.ruler-mark {
+  position: absolute;
+  background: rgb(15 103 173 / 0.18);
+  transition:
+    left 200ms var(--ease),
+    top 200ms var(--ease);
+}
+
+.ruler-x .ruler-mark {
+  bottom: 0;
+  left: var(--at);
+  width: max(var(--size), 2px);
+  height: 100%;
+  border-bottom: 3px solid var(--pencil);
+}
+
+.ruler-y .ruler-mark {
+  top: var(--at);
+  right: 0;
+  width: 100%;
+  height: max(var(--size), 2px);
+  border-right: 3px solid var(--pencil);
+}
 
 .sheet {
   position: relative;
-  max-width: 980px;
-  margin: 0 auto;
-  background: var(--surface);
+  background: var(--sheet);
   box-shadow: var(--shadow-sheet);
-  border-radius: 2px;
-  overflow: hidden;
 }
 
 .sheet img {
@@ -291,93 +381,134 @@ p {
 
 .sheet.placeholder {
   aspect-ratio: 8.5 / 11;
-  background: linear-gradient(var(--surface), #f8f8fa);
 }
 
 .box {
+  border-radius: 1px;
+  animation: mark 420ms var(--ease) backwards;
+}
+
+.sheet .box {
   position: absolute;
-  border-radius: 2px;
   cursor: pointer;
-  transition:
-    opacity 150ms var(--ease),
-    box-shadow 150ms var(--ease);
+  transition: opacity 150ms var(--ease);
 }
 
 /* While one box is in focus the rest step back, so the leader's target is unmistakable. */
 .sheet[data-active] .box:not([data-active]) {
-  opacity: 0.35;
+  opacity: 0.3;
 }
 
 .box[data-active] {
   z-index: 1;
-  box-shadow:
-    0 0 0 3px var(--surface),
-    0 0 0 5px var(--accent);
 }
 
-/* Loading: one band sweeps the page while the service reads it. */
-.scan {
+/* The corrector circles the box in focus. */
+.box[data-active]::before {
+  content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgb(37 99 235 / 0.1) 46%,
-    rgb(37 99 235 / 0.45) 50%,
-    transparent 50.4%
-  );
-  background-size: 100% 200%;
-  animation: scan 1.8s var(--ease) infinite;
+  inset: -8px;
+  border: 1.5px solid var(--pencil);
+  border-radius: 50%;
+  animation: circle 260ms var(--ease);
   pointer-events: none;
 }
 
-@keyframes scan {
+/* Each mark is drawn in, left to right, like a pencil stroke. */
+@keyframes mark {
   from {
-    background-position: 0 100%;
-  }
-  to {
-    background-position: 0 -20%;
+    clip-path: inset(0 100% 0 0);
   }
 }
 
-/* ---------- Detections panel ---------- */
+@keyframes circle {
+  from {
+    opacity: 0;
+    scale: 1.5;
+  }
+}
+
+/* Loading: the corrector's reading rule moves down the page while the service reads it. */
+.scan {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: rgb(238 240 236 / 0.25);
+  pointer-events: none;
+}
+
+.scan::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -40px;
+  height: 40px;
+  border-bottom: 2px solid var(--pencil);
+  background: linear-gradient(to bottom, rgb(15 103 173 / 0), rgb(15 103 173 / 0.14));
+  animation: read 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes read {
+  to {
+    top: 100%;
+  }
+}
+
+/* ---------- Detections panel: the proof margin ---------- */
 
 .panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--surface);
+  background: var(--paper);
 }
 
 .panel-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
-  height: 52px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--line);
+  padding: 16px 18px 0;
   flex: none;
 }
 
 .panel-head h2 {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 750;
+  font-stretch: 116%;
+  letter-spacing: -0.01em;
 }
 
 .count {
-  min-width: 22px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: #f0f0f3;
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
+  color: var(--ink-2);
+  font-size: 19px;
+  font-weight: 400;
+  font-stretch: 116%;
 }
 
 .panel-head .muted {
   font-size: 12.5px;
+}
+
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  padding: 4px 18px 12px;
+  border-bottom: 1px solid var(--rule-strong);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  flex: none;
+}
+
+.tally-query {
+  color: var(--query-text);
+  font-weight: 600;
+}
+
+.panel-head:has(+ .panel-body) {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule-strong);
 }
 
 .panel-body {
@@ -388,53 +519,62 @@ p {
 
 .rows {
   margin: 0;
-  padding: 6px;
+  padding: 6px 8px;
   list-style: none;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 26px 18px minmax(0, 1fr) auto auto;
+  grid-template-columns: 24px 16px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
-  min-height: 38px;
-  padding: 6px 10px 6px 6px;
-  border: 1px solid transparent;
-  border-radius: 7px;
+  min-height: 36px;
+  padding: 5px 10px 5px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
+li:last-child > .row {
+  border-bottom: 0;
+}
+
+.row:hover,
 .row[data-active] {
-  border-color: rgb(37 99 235 / 0.35);
-  background: var(--accent-soft);
+  background: var(--pencil-soft);
 }
 
 .row:focus-visible {
-  outline-offset: -1px;
+  outline-offset: -2px;
 }
 
 .row-index {
-  color: var(--text-3);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+/* The note's number is circled in pencil, matching the circle around its box. */
+.row[data-active] .row-index {
+  background: var(--pencil);
+  color: var(--sheet);
+  font-weight: 650;
 }
 
 .row-icon {
   display: grid;
-}
-
-.row-icon.checked {
-  color: var(--checked);
-}
-
-.row-icon.unchecked {
-  color: var(--unchecked);
+  color: var(--pencil);
 }
 
 .row-label {
@@ -444,45 +584,39 @@ p {
 }
 
 .no-label {
-  color: var(--text-3);
+  color: var(--ink-3);
   font-style: italic;
 }
 
-/* Pinned to the last column so the state lines up whether or not a row has the low-confidence tag. */
+/* Pinned to the last column so the state lines up whether or not a row is low confidence. */
 .row-state {
   grid-column: 5;
-  color: var(--text-2);
+  color: var(--ink-2);
   font-size: 12.5px;
 }
 
-.uncertain {
+/* Low confidence is circled in the vermilion pencil, the only other color on the page. */
+.query {
   grid-column: 4;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 7px 1px 5px;
+  padding: 0 6px;
+  border: 1.5px solid var(--query);
   border-radius: 999px;
-  background: var(--uncertain-soft);
-  color: var(--uncertain-text);
-  font-size: 12px;
-  font-weight: 500;
+  color: var(--query-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
   white-space: nowrap;
-}
-
-.uncertain svg {
-  width: 13px;
-  height: 13px;
 }
 
 .row.skeleton {
   cursor: default;
-  grid-template-columns: 44px 1fr;
+  grid-template-columns: 40px 1fr;
 }
 
 .row.skeleton span {
   height: 10px;
-  border-radius: 4px;
-  background: #efeff2;
+  border-radius: 2px;
+  background: var(--rule);
   animation: pulse 1.4s ease-in-out infinite;
   animation-delay: inherit;
 }
@@ -497,29 +631,49 @@ p {
   }
 }
 
+/* The slip at the foot of the margin: the focused box, measured. */
+.slip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  min-height: 46px;
+  align-items: center;
+  padding: 10px 18px;
+  border-top: 1px dashed var(--rule-strong);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  flex: none;
+}
+
+.slip-no {
+  color: var(--pencil);
+  font-weight: 700;
+}
+
 .panel-note {
   display: grid;
   gap: 6px;
   justify-items: start;
   margin: 16px;
   padding: 16px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--rule-strong);
   border-radius: var(--radius);
-  color: var(--text-2);
+  background: var(--sheet);
+  color: var(--ink-2);
 }
 
 .panel-note-title {
-  color: var(--text);
-  font-weight: 600;
+  color: var(--ink);
+  font-weight: 650;
 }
 
 .panel-note.error {
-  border-color: #f3c9c6;
-  background: #fff7f6;
+  border-color: var(--query);
+  background: var(--query-soft);
 }
 
 .panel-note.error .panel-note-title {
-  color: #b42318;
+  color: var(--query-text);
 }
 
 .panel-note .button {
@@ -540,16 +694,17 @@ p {
 
 .connector path {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--pencil);
   stroke-width: 1.5;
   stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
 /* A thin, translucent casing separates the line from the form's text without erasing it. */
 .connector path.casing {
-  stroke: var(--surface);
-  stroke-width: 2.5;
-  opacity: 0.55;
+  stroke: var(--sheet);
+  stroke-width: 4.5;
+  opacity: 0.85;
 }
 
 .connector path[data-offscreen] {
@@ -557,87 +712,145 @@ p {
 }
 
 .connector circle {
-  fill: var(--surface);
-  stroke: var(--accent);
+  fill: var(--pencil);
+  stroke: var(--sheet);
   stroke-width: 1.5;
 }
 
 /* ---------- Empty state ---------- */
 
 .empty {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 32px 24px 10vh;
-  text-align: center;
+  gap: clamp(32px, 6vw, 96px);
+  flex: 1;
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  padding: 48px clamp(20px, 5vw, 64px) 8vh;
+}
+
+.empty-copy {
+  display: grid;
+  justify-items: start;
+  gap: 18px;
 }
 
 .empty h1 {
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  max-width: 13ch;
+  font-size: clamp(38px, 4.6vw, 62px);
+  font-weight: 800;
+  font-stretch: 120%;
+  letter-spacing: -0.03em;
+  line-height: 0.98;
   text-wrap: balance;
 }
 
-.empty > p {
-  max-width: 46ch;
-  color: var(--text-2);
-  font-size: 15px;
+.empty-copy > p {
+  max-width: 40ch;
+  color: var(--ink-2);
+  font-size: 16px;
   text-wrap: pretty;
 }
 
+/* The drop target is a blank sheet framed by printer's crop marks; the marks close in on a drag. */
 .dropzone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: min(560px, 100%);
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  width: min(460px, 100%);
   margin-top: 18px;
-  padding: 44px 32px 36px;
-  border: 2px dashed #a1a1ac;
-  border-radius: 16px;
-  background: #f6f7f9;
-  color: var(--text);
+  padding: 28px 28px 26px;
+  border: 0;
+  background: var(--sheet);
+  color: var(--ink);
   font: inherit;
+  text-align: left;
   cursor: pointer;
-  transition:
-    border-color 200ms var(--ease),
-    background-color 200ms var(--ease),
-    scale 200ms var(--ease);
-}
-
-.dropzone:hover {
-  border-color: #7c7c88;
-  background: #f1f2f5;
-}
-
-.dropzone[data-dragging] {
-  border-color: var(--accent);
-  border-style: solid;
-  background: var(--accent-soft);
-  scale: 1.015;
+  box-shadow: var(--shadow-sheet);
+  transition: background-color 200ms var(--ease);
 }
 
 .dropzone:focus-visible {
-  outline-offset: 4px;
+  outline-offset: 14px;
+}
+
+.crop {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 0 solid var(--ink-3);
+  transition:
+    translate 260ms var(--ease),
+    border-color 200ms var(--ease);
+}
+
+.crop[data-corner='tl'] {
+  top: -10px;
+  left: -10px;
+  border-width: 1.5px 0 0 1.5px;
+}
+
+.crop[data-corner='tr'] {
+  top: -10px;
+  right: -10px;
+  border-width: 1.5px 1.5px 0 0;
+}
+
+.crop[data-corner='bl'] {
+  bottom: -10px;
+  left: -10px;
+  border-width: 0 0 1.5px 1.5px;
+}
+
+.crop[data-corner='br'] {
+  right: -10px;
+  bottom: -10px;
+  border-width: 0 1.5px 1.5px 0;
+}
+
+.dropzone:hover .crop {
+  border-color: var(--ink);
+}
+
+.dropzone[data-dragging] {
+  background: #f4f8fc;
+}
+
+.dropzone[data-dragging] .crop {
+  border-color: var(--pencil);
+}
+
+.dropzone[data-dragging] [data-corner='tl'] {
+  translate: 6px 6px;
+}
+
+.dropzone[data-dragging] [data-corner='tr'] {
+  translate: -6px 6px;
+}
+
+.dropzone[data-dragging] [data-corner='bl'] {
+  translate: 6px -6px;
+}
+
+.dropzone[data-dragging] [data-corner='br'] {
+  translate: -6px -6px;
 }
 
 .dropzone-title {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
+  font-stretch: 112%;
   letter-spacing: -0.01em;
 }
 
 .dropzone[data-dragging] .dropzone-title {
-  color: var(--accent);
+  color: var(--pencil);
 }
 
 .dropzone-hint {
-  color: var(--text-3);
+  color: var(--ink-3);
   font-size: 12.5px;
 }
 
@@ -645,59 +858,97 @@ p {
   margin-top: 18px;
 }
 
-/* Three boxes, one per state: the whole product in one glance. They lift when a file is over the zone. */
-.dropzone-art {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.dropzone-art span {
-  width: 30px;
-  height: 30px;
-  border-radius: 5px;
-  transition: translate 250ms var(--ease);
-}
-
-.dropzone[data-dragging] .dropzone-art span {
-  translate: 0 -6px;
-}
-
-.dropzone[data-dragging] .dropzone-art span:nth-child(2) {
-  transition-delay: 40ms;
-}
-
-.dropzone[data-dragging] .dropzone-art span:nth-child(3) {
-  transition-delay: 80ms;
-}
-
-.dropzone-art [data-state='checked'] {
-  border: 2.5px solid var(--checked);
-  background: var(--checked-soft);
-}
-
-.dropzone-art [data-state='unchecked'] {
-  border: 2.5px solid var(--unchecked);
-}
-
-.dropzone-art [data-state='uncertain'] {
-  border: 2.5px dashed var(--uncertain);
-}
-
 .drop-overlay {
   position: fixed;
-  inset: 8px;
+  inset: 10px;
   z-index: 10;
   display: grid;
   place-items: center;
-  border: 2px dashed var(--accent);
-  border-radius: 12px;
-  background: rgb(238 243 255 / 0.88);
+  border: 1.5px solid var(--pencil);
+  background: rgb(238 240 236 / 0.9);
   backdrop-filter: blur(2px);
-  color: var(--accent);
-  font-size: 16px;
-  font-weight: 600;
+  color: var(--pencil);
+  font-size: 22px;
+  font-weight: 750;
+  font-stretch: 116%;
   pointer-events: none;
+}
+
+/* ---------- Reader: the empty state's piece ---------- */
+
+/* The process told in ink dots, on a loop (story.ts). The steps under it are status, not controls. */
+.reader {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+}
+
+/* On the first upload the piece morphs into the document's sheet. */
+.reader canvas {
+  display: block;
+  width: 100%;
+  height: min(600px, 66vh);
+  view-transition-name: sheet;
+}
+
+.steps {
+  display: flex;
+  gap: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.steps li {
+  position: relative;
+  padding-bottom: 7px;
+  transition: color 300ms var(--ease);
+}
+
+.steps-n {
+  margin-right: 6px;
+  font-size: 11px;
+}
+
+.steps li[data-now] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.steps i {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.steps li:not([data-now]) i {
+  opacity: 0;
+}
+
+.sheet {
+  view-transition-name: sheet;
+}
+
+::view-transition-group(sheet) {
+  animation-duration: 650ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The piece's content stretches as it changes shape, so it leaves early; the paper carries the move. */
+::view-transition-old(sheet) {
+  animation-duration: 220ms;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
 }
 
 /* ---------- Narrow screens: stack, no leader line ---------- */
@@ -706,6 +957,11 @@ p {
   .app {
     height: auto;
     min-height: 100dvh;
+  }
+
+  .empty {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 40px;
   }
 
   .viewer-bar {
@@ -725,22 +981,29 @@ p {
 
   .viewer {
     border-right: 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--rule-strong);
   }
 
   .legend {
     order: 1;
     flex-basis: 100%;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 4px 12px;
   }
 
   .viewer-canvas {
     overflow: visible;
-    padding: 16px;
+    padding: 12px 24px 16px 6px;
   }
 
   .panel-body {
     overflow: visible;
+  }
+
+  .slip {
+    position: sticky;
+    bottom: 0;
+    background: var(--paper);
   }
 
   .connector {
@@ -748,16 +1011,50 @@ p {
   }
 }
 
+@media (max-width: 560px) {
+  .reader canvas {
+    height: min(520px, 70vh);
+  }
+
+  .steps {
+    gap: 16px;
+  }
+
+  .sheet-frame {
+    --ruler: 20px;
+  }
+
+  /* At phone scale a box is a few pixels wide: a thinner pencil keeps the form's own mark visible. */
+  .sheet .box {
+    border-width: 1px;
+  }
+
+  .sheet .box[data-state='checked'] {
+    background: rgb(15 103 173 / 0.3);
+  }
+
+  .ruler-label {
+    font-size: 8px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .dropzone,
-  .dropzone-art span {
+  .box,
+  .box[data-active]::before {
+    animation: none;
+  }
+
+  .crop,
+  .ruler-mark {
     transition: none;
   }
 
-
-  .scan {
+  .scan::before {
     animation: none;
-    background: rgb(37 99 235 / 0.06);
+    top: 0;
+    height: 100%;
+    border: 0;
+    background: rgb(15 103 173 / 0.06);
   }
 
   .row.skeleton span {
