@@ -43,7 +43,7 @@ def test_watermark_ink_is_not_a_mark() -> None:
 def test_near_threshold_fill_is_unchecked() -> None:
     img = blank_page(2550, 3300)
     draw_box(img, 300, 1000, 60, "empty")
-    cv2.rectangle(img, (325, 1025), (334, 1034), 0, -1)  # 10x10 dot: ~6% of the interior
+    cv2.rectangle(img, (325, 1025), (333, 1033), 0, -1)  # 9x9 dot: ~6% of the interior
 
     states = FillRatioClassifier().classify(img, [Rect(300, 1000, 360, 1060, 1.0)])
 
