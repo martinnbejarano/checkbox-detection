@@ -1,7 +1,7 @@
 """Checkbox detection on one decoded page: pure NumPy/OpenCV, no I/O. Read this file first.
 
 A page is first turned upright (`straighten`), then goes through three stages, in this order:
-  0. straighten - `deskew`: the page level, boxes mapped back after (`deskew.py`)
+  0. straighten - the page upright and level, boxes mapped back after (`orient.py`, `deskew.py`)
   1. locate   - `Locator`: where are the boxes          (`locate/`)
   2. classify - `StateClassifier`: is each one checked (`classify/`)
   3. label    - `RapidOcrLabeler`: what does it say     (`label.py`, only when labels are asked for)
@@ -24,6 +24,7 @@ from checkbox_detection.detection.label import RapidOcrLabeler
 from checkbox_detection.detection.locate import Locator
 from checkbox_detection.detection.locate.opencv import OpenCVLocator
 from checkbox_detection.detection.locate.yolox import YoloxLocator
+from checkbox_detection.detection.orient import is_sideways, is_upside_down, text_lines, turn
 from checkbox_detection.detection.types import Box
 
 
@@ -35,8 +36,13 @@ class Pipeline:
 
     def straighten(self, image: np.ndarray) -> Upright:
         """Stage 0: `run` and `label` take `upright.image`; `upright.boxes_to_original` maps
-        their boxes back to `image`."""
-        return deskew(image)
+        their boxes back to `image`. Quarter turn, then deskew, then half turn: upside down is
+        told apart on a level page only."""
+        ocr = self.labeler.ocr
+        lines = text_lines(image, ocr)
+        sideways = turn(image, 1 if is_sideways(lines) else 0)
+        level = sideways.then(deskew(sideways.image))
+        return level.then(turn(level.image, 2 if is_upside_down(level, lines, ocr) else 0))
 
     def run(self, image: np.ndarray) -> list[Box]:
         rects = self.locator.locate(image)

@@ -36,6 +36,11 @@ class Upright:
         w, h = self.original_size
         return [replace(b, rect=map_rect(b.rect, self.to_original, w, h)) for b in boxes]
 
+    def then(self, step: "Upright") -> "Upright":
+        """`step`, computed on `self.image`, as one step from the original page."""
+        to_original = self.to_original @ np.vstack([step.to_original, [0, 0, 1]])
+        return Upright(step.image, to_original, self.original_size)
+
 
 def skew_angle(binary: np.ndarray, params: DeskewParams) -> float:
     """Rotation (degrees, `cv2.getRotationMatrix2D` convention) that levels the rows of ink.
