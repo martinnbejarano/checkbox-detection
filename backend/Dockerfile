@@ -12,13 +12,11 @@ FROM python:3.13-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.12.24 /uv /bin/
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0
 WORKDIR /app
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-dev --no-install-project
+# No cache mounts: Railway's builder rejects them without its own id prefix.
 COPY backend/pyproject.toml backend/uv.lock ./
+RUN uv sync --locked --no-dev --no-install-project
 COPY backend/src ./src
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-editable
+RUN uv sync --locked --no-dev --no-editable
 
 FROM python:3.13-slim
 RUN useradd --system --no-create-home app
