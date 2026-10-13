@@ -1,7 +1,4 @@
-"""Stage 0: straighten a page tilted up to a few degrees, by projection profile.
-
-Must not import anything outside `detection`.
-"""
+"""Stage 0: straighten a page tilted up to a few degrees, by projection profile."""
 
 import math
 from dataclasses import dataclass, replace

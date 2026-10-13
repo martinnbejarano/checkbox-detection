@@ -12,7 +12,6 @@ from checkbox_detection.imaging.errors import CorruptInput, InputTooLarge
 # It is released between pages, so detection on a page runs outside it.
 # Reentrant: a `render_pdf` generator dropped half-way closes its document from its `finally`,
 # which can run on a thread already holding the lock.
-# ponytail: global lock serializes PDF renders; scale throughput with worker processes.
 _PDFIUM = threading.RLock()
 
 

@@ -1,4 +1,4 @@
-"""Service settings from `CHECKBOX_*` environment variables. Imports nothing from the project."""
+"""Service settings from `CHECKBOX_*` environment variables."""
 
 from pathlib import Path
 

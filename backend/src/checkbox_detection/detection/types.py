@@ -1,4 +1,4 @@
-"""Domain types passed between the pipeline stages and to `api`. Imports nothing else."""
+"""Domain types passed between the pipeline stages and to `api`."""
 
 from dataclasses import dataclass
 

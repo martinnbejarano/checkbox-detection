@@ -1,7 +1,4 @@
-"""Stage 0: turn a page on its side or upside down upright, with RapidOCR text lines.
-
-Must not import anything outside `detection`.
-"""
+"""Stage 0: turn a page on its side or upside down upright, with RapidOCR text lines."""
 
 from dataclasses import dataclass
 

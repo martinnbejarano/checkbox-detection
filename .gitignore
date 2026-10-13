@@ -3,7 +3,7 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
-# Pretrained models come from `make models`; the fine-tuned ones are committed (spec §6).
+# Pretrained models come from `make models`; the fine-tuned ones are committed.
 /backend/models/*
 !/backend/models/*-tuned.onnx
 # Training data and checkpoints stay local.

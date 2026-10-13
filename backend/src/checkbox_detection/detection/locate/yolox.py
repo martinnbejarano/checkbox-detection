@@ -1,8 +1,5 @@
 """YoloxLocator: `nutrientdocs/form-field-v1-nano`, fine-tuned (training/train_yolox.py), run over
-overlapping tiles of the page.
-
-Must not import `classify`, `label` or anything outside `detection`.
-"""
+overlapping tiles of the page."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,8 +20,7 @@ CHOICE_BUTTON = 1  # classes: 0 Text, 1 ChoiceButton, 2 Signature
 
 @dataclass(frozen=True, slots=True)
 class YoloxParams:
-    # Tuned on validation by training/train_yolox.py tune;
-    # results in .agents/research/tuning-results.md.
+    # Tuned on validation by training/train_yolox.py tune.
     # Tile side as a fraction of the page width (1530 px on a 2550 px page); each tile is shrunk
     # to 640 px, so this sets how big a box looks to the model. Width, not the short edge, so a
     # wide crop is not cut into tiles that blow its boxes up.

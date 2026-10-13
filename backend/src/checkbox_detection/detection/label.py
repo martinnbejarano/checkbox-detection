@@ -1,6 +1,4 @@
-"""Stage 3: the label text next to each box. Must not import `locate`, `classify` or anything
-outside `detection`.
-"""
+"""Stage 3: the label text next to each box."""
 
 from dataclasses import dataclass
 
@@ -86,11 +84,12 @@ class RapidOcrLabeler:
             }
         )
         # RapidOCR loads its models on the first call; do it now, not on the first request. The
-        # detection model is for `orient.py`, which shares this instance.
+        # detection model is for `orient.py`, which shares this instance. `_load_det_model` is
+        # private: rapidocr has no public way to load one model alone, so it is pinned exactly.
         self._read(np.full((32, 320), 255, np.uint8))
         self.ocr._load_det_model()  # type: ignore[no-untyped-call]
 
-    # TODO(prod): labels left of the box, and the question of the row the box answers.
+    # TODO: labels left of the box, and the question of the row the box answers.
     def label(self, image: np.ndarray, rects: list[Rect]) -> list[str | None]:
         gray = to_clean_gray(image)
         h, w = gray.shape

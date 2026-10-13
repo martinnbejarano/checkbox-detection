@@ -1,4 +1,4 @@
-"""Accuracy and latency of every locator x classifier combo against the ground truth (spec §7).
+"""Accuracy and latency of every locator x classifier combo against the ground truth.
 
 Prints Markdown tables per combo for "samples" and "external (unseen)", then by tag and
 by scale (samples only) and, with --labels, label accuracy (samples only: the external set has

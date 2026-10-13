@@ -1,7 +1,6 @@
 """Gray conversion, binarization and line removal shared by the OpenCV locator and fill_ratio.
 
 Lives outside `locate/` and `classify/` so neither stage imports the other.
-Must not import anything outside `detection`.
 """
 
 from dataclasses import dataclass

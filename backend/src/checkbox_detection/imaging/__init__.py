@@ -1,6 +1,6 @@
 """Turns uploaded bytes into validated, decoded pages (uint8 gray HxW or RGB HxWx3).
 
-Raises `imaging.errors` exceptions. Must not import FastAPI, `api` or `detection`.
+Raises `imaging.errors` exceptions.
 """
 
 from collections.abc import Iterator

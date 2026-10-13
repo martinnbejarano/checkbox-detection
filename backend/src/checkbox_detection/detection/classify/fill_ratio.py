@@ -1,7 +1,4 @@
-"""FillRatioClassifier: a box is checked when its interior holds enough mark ink.
-
-Must not import `locate`, `label` or anything outside `detection`.
-"""
+"""FillRatioClassifier: a box is checked when its interior holds enough mark ink."""
 
 import math
 from dataclasses import dataclass
@@ -20,8 +17,7 @@ from checkbox_detection.detection.types import Rect
 
 @dataclass(frozen=True, slots=True)
 class FillParams:
-    # Tuned on validation by training/search.py fill;
-    # results in .agents/research/tuning-results.md.
+    # Tuned on validation by training/search.py fill.
     # Interior = the box shrunk by max(border + border_gap_frac * side, min_margin_frac * side).
     # Smallest inset, as a share of the side.
     min_margin_frac: float = 0.2
@@ -35,7 +31,7 @@ class FillParams:
     # Straight runs at least this share of the side are box edges, set apart from the marks.
     edge_length_frac: float = 0.8
     # Interior ink ratio above this means checked: 0.05 plus a 0.02 margin, so an ambiguous ratio
-    # resolves to unchecked (spec §6). Kept although validation prefers 0.02, where a 2% speck
+    # resolves to unchecked. Kept although validation prefers 0.02, where a 2% speck
     # would read as checked.
     fill_threshold: float = 0.07
 

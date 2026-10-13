@@ -1,8 +1,5 @@
 """StateCnnClassifier: `nutrientdocs/form-field-v1-state`, fine-tuned (training/train_cnn.py), on
-40x160 gray crops, one batched run.
-
-Must not import `locate`, `label` or anything outside `detection`.
-"""
+40x160 gray crops, one batched run."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,8 +18,7 @@ MEAN, STD = 0.5, 0.5  # the model's input normalisation, on pixels scaled to 0-1
 
 @dataclass(frozen=True, slots=True)
 class StateCnnParams:
-    # Tuned on validation by training/train_cnn.py tune;
-    # results in .agents/research/tuning-results.md.
+    # Tuned on validation by training/train_cnn.py tune.
     # The crop reaches this share of the side past each box edge, so a border a locator cut a few
     # px short is still whole.
     pad_frac: float = 0.05

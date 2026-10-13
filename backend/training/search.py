@@ -29,8 +29,8 @@ from checkbox_detection.detection.classify import fill_ratio
 from checkbox_detection.detection.locate import opencv
 from checkbox_detection.detection.types import Rect
 
-# A field moves only when it gains at least this much (0.5 points), in every stage. Why:
-# .agents/research/tuning-results.md, "Choices informed by evaluation data".
+# A field moves only when it gains at least this much (0.5 points), in every stage: a smaller
+# gain once halved OpenCV's external recall (WRITEUP.md, "Fine-tuning on public data").
 MIN_GAIN = 0.005
 VAL_PAGES = 300  # opencv: a fixed random sample of validation pages
 

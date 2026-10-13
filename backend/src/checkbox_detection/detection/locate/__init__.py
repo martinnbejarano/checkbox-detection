@@ -1,7 +1,4 @@
-"""Stage 1: where are the checkboxes. The `Locator` Protocol; implementations live next to it.
-
-Must not import `classify`, `label` or anything outside `detection`.
-"""
+"""Stage 1: where are the checkboxes. The `Locator` Protocol; implementations live next to it."""
 
 from typing import Protocol
 

@@ -1,4 +1,4 @@
-"""Build the train / validation data for tuning (spec §6, "Tuning on public data").
+"""Build the train / validation data for tuning.
 
 Two kinds of pages, written as one COCO dataset per split under data/build/:
 
@@ -91,7 +91,7 @@ SOURCES = {
         state=True,
     ),
     # Not used, after looking at their crops: chris-bromley-bf2yc/tax-form-checkbox-detection
-    # labels round radio buttons together with their word (out of scope, spec §7), and
+    # labels round radio buttons together with their word (out of scope), and
     # office-8ecbg/checkbox-detection-jiid0 holds 10x10 px crops with no page around them.
 }
 

@@ -6,7 +6,8 @@
   2. classify - `StateClassifier`: is each one checked (`classify/`)
   3. label    - `RapidOcrLabeler`: what does it say     (`label.py`, only when labels are asked for)
 
-Must not import FastAPI, `api`, `imaging` or `config`; only its own modules.
+`detection` imports nothing from `api`, `imaging` or `config`, and the stages import nothing from
+each other: `binarize.py`, `geometry.py` and `types.py` hold what they share.
 """
 
 from collections.abc import Callable

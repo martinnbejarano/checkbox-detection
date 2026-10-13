@@ -12,7 +12,7 @@ I kept each step below only if it moved a measured number.
 
 ### 1. Measure first
 
-Before developing any detector, I used AI  to label the 4 original samples (288 bounding boxes) under a written policy. A box is checked when an intentional mark sits mostly inside it; a stray stroke, a watermark or a colored cell fill does not count. I also put aside an external set of 15 pages labeled by third parties (419 boxes) and never tuned on it.
+Before developing any detector, I labeled the 4 original samples (288 bounding boxes) by hand, under a written policy. A box is checked when an intentional mark sits mostly inside it; a stray stroke, a watermark or a colored cell fill does not count. I also put aside an external set of 15 pages labeled by third parties (419 boxes) and never tuned on it.
 
 `make eval` runs every locator × classifier combination on both sets. The headline metric counts a box only if it was found at IoU ≥ 0.5 and its state is right.
 

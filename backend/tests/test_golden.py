@@ -1,5 +1,5 @@
 """Golden tests: end-to-end accuracy of each (locator, classifier) combo on each sample stays at
-or above the floor recorded after tuning (spec §8). The samples are evaluation only; nothing was
+or above the floor recorded after tuning. The samples are evaluation only; nothing was
 tuned on them. The `-rotN` samples are tilted or turned N degrees and made upright by stage 0.
 
 A floor is the accuracy measured after tuning minus about one box, so a real regression fails

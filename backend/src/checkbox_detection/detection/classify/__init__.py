@@ -1,7 +1,4 @@
-"""Stage 2: is each checkbox checked. The `StateClassifier` Protocol; implementations sit beside it.
-
-Must not import `locate`, `label` or anything outside `detection`.
-"""
+"""Stage 2: is each checkbox checked. The `StateClassifier` Protocol, and its implementations."""
 
 from typing import Protocol
 

@@ -67,6 +67,16 @@ Open the demo page (port 8000 with Docker, 5173 locally) and drop a form on it, 
 
 Each page goes through four stages:
 
+```text
+upload ──▶ straighten ──▶ locate ──────────▶ classify ────────────▶ label* ──▶ boxes
+           orient,        yolox (default)    cnn (default)          RapidOCR
+           deskew         opencv (fallback)  fill_ratio (fallback)
+
+* only with ?labels=true
+```
+
+The default pipeline is **yolox + cnn**. `opencv` and `fill_ratio` are the classical baseline, kept as the fallback that needs no model files.
+
 1. **Straighten:** turn the page upright and level, then map the boxes back to the original pixels (`detection/orient.py`, `detection/deskew.py`).
 2. **Locate:** find the boxes (`detection/locate/`).
 3. **Classify:** decide whether each box is checked (`detection/classify/`).
@@ -153,5 +163,5 @@ Environment variables with the prefix `CHECKBOX_`. The defaults need none.
 ## Repository
 
 - **`backend/`:** the service (`src/`), offline tuning (`training/`), `scripts/evaluate.py`, tests and the Dockerfile.
-- **`frontend/`:** the demo page (React, Vite, TypeScript).
+- **`frontend/`:** the demo page (React, Vite, TypeScript). `src/reader/` is the animated empty state; it is decoration and nothing else depends on it.
 - **`samples/`:** the pages used for evaluation, with ground truth in `backend/tests/data/ground_truth/`.

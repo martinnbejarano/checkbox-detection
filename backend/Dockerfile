@@ -22,7 +22,7 @@ FROM python:3.13-slim
 RUN useradd --system --no-create-home app
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=frontend /frontend/dist /app/static
-# The default pipeline runs the fine-tuned models, which are committed (spec §6).
+# The default pipeline runs the fine-tuned models, which are committed.
 COPY backend/models/*-tuned.onnx /app/models/
 ENV PATH=/app/.venv/bin:$PATH \
     CHECKBOX_STATIC_DIR=/app/static \

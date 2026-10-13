@@ -260,7 +260,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "pypdfium2", specifier = ">=5.14" },
     { name = "python-multipart", specifier = ">=0.0.32" },
-    { name = "rapidocr", specifier = ">=3.10.0" },
+    { name = "rapidocr", specifier = "==3.10.0" },
     { name = "uvicorn", specifier = ">=0.54.0" },
 ]
 

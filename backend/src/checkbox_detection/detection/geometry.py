@@ -1,4 +1,4 @@
-"""Pure box geometry helpers. Must not import anything outside `detection.types` and NumPy."""
+"""Pure box geometry helpers."""
 
 import math
 

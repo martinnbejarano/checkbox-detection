@@ -25,7 +25,7 @@ def decode_image(data: bytes, max_pixels: int) -> np.ndarray:
     except (Image.DecompressionBombWarning, Image.DecompressionBombError) as exc:
         raise InputTooLarge(str(exc)) from exc
 
-    # TODO(prod): multi-page TIFF. Pillow opens frame 0, which is the only one decoded.
+    # TODO: multi-page TIFF. Pillow opens frame 0, which is the only one decoded.
     with image:
         if image.width * image.height > max_pixels:
             raise InputTooLarge(

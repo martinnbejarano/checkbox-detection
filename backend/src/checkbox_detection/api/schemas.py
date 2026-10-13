@@ -1,4 +1,4 @@
-"""Response models for the HTTP contract (spec section 2)."""
+"""Response models for the HTTP contract."""
 
 from pydantic import BaseModel
 

@@ -1,7 +1,7 @@
 [project]
 name = "checkbox-training"
 version = "0.1.0"
-description = "Offline tuning of the checkbox-detection stages (spec §6). Never imported by the service."
+description = "Offline tuning of the checkbox-detection stages. Never imported by the service."
 requires-python = ">=3.13"
 dependencies = [
     "checkbox-detection",

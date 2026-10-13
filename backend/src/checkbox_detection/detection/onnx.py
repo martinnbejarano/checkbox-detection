@@ -1,7 +1,4 @@
-"""The only place that builds an onnxruntime `InferenceSession`.
-
-Must not import anything outside `detection`.
-"""
+"""The only place that builds an onnxruntime `InferenceSession`."""
 
 from pathlib import Path
 

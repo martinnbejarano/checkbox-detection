@@ -75,6 +75,6 @@ def detection_counts(locator: Locator, pages: list[Page]) -> tuple[int, int, int
 
 
 def f2(t: int, f: int, m: int) -> float:
-    """F-beta with beta 2: recall counts four times as much as precision (spec: favour recall)."""
+    """F-beta with beta 2: recall counts four times as much as precision."""
     p, r = m / f if f else 0.0, m / t if t else 0.0
     return 5 * p * r / (4 * p + r) if p + r else 0.0

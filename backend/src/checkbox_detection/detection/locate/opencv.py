@@ -1,7 +1,4 @@
-"""OpenCVLocator: binarize, drop table rules, keep hollow near-square contours. Needs no weights.
-
-Must not import `classify`, `label` or anything outside `detection`.
-"""
+"""OpenCVLocator: binarize, drop table rules, keep hollow near-square contours. Needs no weights."""
 
 from dataclasses import dataclass
 
@@ -20,9 +17,8 @@ from checkbox_detection.detection.types import Rect
 
 @dataclass(frozen=True, slots=True)
 class OpenCVParams:
-    # Shape thresholds tuned on validation by training/search.py opencv;
-    # results in .agents/research/tuning-results.md.
-    # The size extremes and the upscale rule are scale rules (spec §6), not tuned.
+    # Shape thresholds tuned on validation by training/search.py opencv. The size extremes and
+    # the upscale rule are scale rules, not tuned.
     # Below this side a shape is noise and its state cannot be read.
     min_side_px: int = 8
     # Above this fraction of the page's short edge a shape is a table cell, not a checkbox.
@@ -38,7 +34,7 @@ class OpenCVParams:
     # "D" or "0" reach about 0.84 and stay weak.
     confident_rectangularity: float = 0.86
     # A confident candidate also has a thin border: at most this share of its side.
-    # ponytail: 0.15 is the top of the tried range; try higher when the validation data grows.
+    # 0.15 is the top of the range tried; try higher when the validation data grows.
     max_confident_border_frac: float = 0.15
     # Hollow: the contour's holes cover at least this share of its bbox. An X or a fill with a
     # gap leaves holes; a solid blob or a thick glyph does not.

@@ -1,3 +1,6 @@
+"""The app factory: settings, the pipeline built on startup, middleware, error handlers, routes
+and, when `CHECKBOX_STATIC_DIR` is set, the demo page."""
+
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
