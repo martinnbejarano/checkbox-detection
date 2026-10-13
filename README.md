@@ -67,12 +67,13 @@ Open the demo page (port 8000 with Docker, 5173 locally) and drop a form on it, 
 
 Each page goes through four stages:
 
-```text
-upload ──▶ straighten ──▶ locate ──────────▶ classify ────────────▶ label* ──▶ boxes
-           orient,        yolox (default)    cnn (default)          RapidOCR
-           deskew         opencv (fallback)  fill_ratio (fallback)
-
-* only with ?labels=true
+```mermaid
+flowchart LR
+    upload([upload]) --> straighten["straighten<br>orient, deskew"]
+    straighten --> locate["locate<br>yolox (default)<br>opencv (fallback)"]
+    locate --> classify["classify<br>cnn (default)<br>fill_ratio (fallback)"]
+    classify --> boxes([boxes])
+    classify -. "?labels=true" .-> label["label<br>RapidOCR"] -.-> boxes
 ```
 
 The default pipeline is **yolox + cnn**. `opencv` and `fill_ratio` are the classical baseline, kept as the fallback that needs no model files.
