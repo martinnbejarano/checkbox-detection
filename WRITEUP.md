@@ -79,6 +79,8 @@ Fine-tuning ran 12 epochs with AdamW at lr 0.002 and class-weighted cross entrop
 
 ### Label
 
+The contract asks for position and state, and a client still has to work out which field each box belongs to. So the service can also read the text printed next to the box, on request only (`?labels=true`), since it adds about 9 ms per box.
+
 RapidOCR's recogniser (PP-OCR on onnxruntime) reads a strip right of each box: the box's row band, starting 5% of the side past the edge and ending at the next box on the row, a vertical rule, a blank gap of one box side after the text, or 15 box sides. Text with recognition confidence below 0.5 is dropped.
 
 ## Evaluation
@@ -130,7 +132,7 @@ What holds up:
 - yolox + cnn scores 99.3% at 0.5×, 1× and 1.5× scale.
 - It called no empty box checked on the external set, whose layouts it never saw.
 - It needs no network, credentials or GPU, and `opencv + fill_ratio` still runs if the model files are missing.
-- PDFs up to 100 pages are rendered one page at a time, so memory does not grow with the page count, and `/detect/stream` sends each page's boxes as soon as that page is done.
+- PDFs up to 100 pages are rendered one page at a time, so memory does not grow with the page count. At about 1.4 s per page, a full `/detect` response for such a PDF takes over two minutes, so `/detect/stream` sends each page's boxes as soon as that page is done and a client can show them while the rest is read. The demo page uses it.
 
 What does not:
 
