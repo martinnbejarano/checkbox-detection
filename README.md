@@ -166,3 +166,7 @@ Environment variables with the prefix `CHECKBOX_`. The defaults need none.
 - `backend/`: the service (`src/`), offline tuning (`training/`), `scripts/evaluate.py`, tests and the Dockerfile.
 - `frontend/`: the demo page (React, Vite, TypeScript). `src/reader/` is the animated empty state; it is decoration and nothing else depends on it.
 - `samples/`: the pages used for evaluation, with ground truth in `backend/tests/data/ground_truth/`.
+
+## License
+
+Apache-2.0 (`LICENSE`). The fine-tuned models under `backend/models/` derive from `nutrientdocs/form-field-v1-nano` and `form-field-v1-state`, both Apache-2.0; the training data is CC BY 4.0 (Roboflow) and public domain.
