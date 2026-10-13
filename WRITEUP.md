@@ -40,7 +40,7 @@ Four pages are too few to tune on, so I trained on synthetic pages built from th
 
 The external score rose from 57.3% to 71.8% while the 4 original samples stayed at 99.0%. Most of the gain came from YOLOX, which found 41 more boxes (recall from 70.4 to 80.2). The CNN cut checked boxes read as empty from 55 to 35.
 
-The evaluation runs surfaced four errors along the way:
+The evaluation runs surfaced two errors along the way:
 
 - The Roboflow boxes are 10 to 25% wider per side than the printed square. A YOLOX trained on them returned boxes about 30% too large, and the external score fell to 24.3%.
 - After a first fine-tune, the CNN called 35 empty boxes with thick borders checked. About 21% of the checked training boxes had a colored tick that the grayscale step erases, so the model learned other cues for "checked". Leaving those boxes out of training took false checks on the external set from 35 to 0.
@@ -129,7 +129,7 @@ A box counts only if it was found at IoU ≥ 0.5 with the right state. `test_gol
 What holds up:
 
 - Pages tilted up to ±10°, on their side or upside down are turned upright first, and the boxes come back in the original image's pixels. The tilted samples score 99.0% and the sideways ones 99.7%.
-- yolox + cnn scores 99.3% at 0.5×, 1× and 1.5× scale.
+- `yolox + cnn` scores 99.3% at 0.5×, 1× and 1.5× scale.
 - It called no empty box checked on the external set, whose layouts it never saw.
 - It needs no network, credentials or GPU, and `opencv + fill_ratio` still runs if the model files are missing.
 - PDFs up to 100 pages are rendered one page at a time, so memory does not grow with the page count. At about 1.4 s per page, a full `/detect` response for such a PDF takes over two minutes, so `/detect/stream` sends each page's boxes as soon as that page is done and a client can show them while the rest is read. The demo page uses it.

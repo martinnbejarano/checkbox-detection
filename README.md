@@ -1,6 +1,6 @@
 # checkbox-detection
 
-An HTTP service that finds the checkboxes on a document page, says whether each one is checked and, on request, reads the label printed next to it.
+Checkbox detection for scanned forms: finds the checkboxes on a document page, says whether each one is checked and, on request, reads the label printed next to it. Exposed as an HTTP API (`POST /detect`), with a demo page.
 
 - Demo page: <https://homevision.martinbejarano.com>
 - API: <https://homevision.martinbejarano.com/detect> (interactive docs at [`/docs`](https://homevision.martinbejarano.com/docs))
