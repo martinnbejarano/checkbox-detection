@@ -11,7 +11,7 @@ def load_ocr(threads: int) -> RapidOCR:
             "Global.use_det": False,
             "Global.use_cls": False,
             "Global.log_level": "warning",
-            "Rec.rec_batch_num": 20,  
+            "Rec.rec_batch_num": 20,  # orient.py reads its 2 x 10 probes in one batch
             "EngineConfig.onnxruntime.intra_op_num_threads": threads,
             "EngineConfig.onnxruntime.inter_op_num_threads": 1,
         }
