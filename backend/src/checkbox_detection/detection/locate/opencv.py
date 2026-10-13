@@ -34,7 +34,6 @@ class OpenCVParams:
     # "D" or "0" reach about 0.84 and stay weak.
     confident_rectangularity: float = 0.86
     # A confident candidate also has a thin border: at most this share of its side.
-    # 0.15 is the top of the range tried; try higher when the validation data grows.
     max_confident_border_frac: float = 0.15
     # Hollow: the contour's holes cover at least this share of its bbox. An X or a fill with a
     # gap leaves holes; a solid blob or a thick glyph does not.

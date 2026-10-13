@@ -71,23 +71,9 @@ class RapidOcrLabeler:
     """RapidOCR recognition only (no text detection) on one strip per box. `ocr` is shared with
     stage 0 (`orient.py`)."""
 
-    def __init__(self, threads: int) -> None:
+    def __init__(self, ocr: RapidOCR) -> None:
         self.params = LabelParams()
-        self.ocr = RapidOCR(
-            params={
-                "Global.use_det": False,
-                "Global.use_cls": False,
-                "Global.log_level": "warning",
-                "Rec.rec_batch_num": 20,  # orient.py reads its 2 x 10 probes in one batch
-                "EngineConfig.onnxruntime.intra_op_num_threads": threads,
-                "EngineConfig.onnxruntime.inter_op_num_threads": 1,
-            }
-        )
-        # RapidOCR loads its models on the first call; do it now, not on the first request. The
-        # detection model is for `orient.py`, which shares this instance. `_load_det_model` is
-        # private: rapidocr has no public way to load one model alone, so it is pinned exactly.
-        self._read(np.full((32, 320), 255, np.uint8))
-        self.ocr._load_det_model()  # type: ignore[no-untyped-call]
+        self.ocr = ocr
 
     # TODO: labels left of the box, and the question of the row the box answers.
     def label(self, image: np.ndarray, rects: list[Rect]) -> list[str | None]:

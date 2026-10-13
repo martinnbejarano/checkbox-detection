@@ -1,4 +1,5 @@
-"""Stage 0: turn a page on its side or upside down upright, with RapidOCR text lines."""
+"""Stage 0: `Orienter` turns a page on its side or upside down upright, with RapidOCR text
+lines, and levels its tilt (`deskew.py`)."""
 
 from dataclasses import dataclass
 
@@ -8,7 +9,8 @@ from rapidocr import RapidOCR
 from rapidocr.ch_ppocr_rec import TextRecInput
 
 from checkbox_detection.detection.binarize import to_clean_gray
-from checkbox_detection.detection.deskew import Upright
+from checkbox_detection.detection.deskew import deskew
+from checkbox_detection.detection.geometry import Upright
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +26,24 @@ class OrientParams:
 
 
 PARAMS = OrientParams()
+
+
+class Orienter:
+    """`ocr` is shared with stage 3 (`label.py`); only its models are called here."""
+
+    def __init__(self, ocr: RapidOCR) -> None:
+        self.ocr = ocr
+
+    def straighten(self, image: np.ndarray) -> Upright:
+        """The stages take `upright.image`; `upright.boxes_to_original` maps their boxes back to
+        `image`. Quarter turn, then deskew, then half turn: upside down is told apart on a level
+        page only."""
+        lines = text_lines(image, self.ocr)
+        upright = quarter_turn(image) if is_sideways(lines) else Upright.identity(image)
+        upright = upright.then(deskew(upright.image))
+        if is_upside_down(upright, lines, self.ocr):
+            upright = upright.then(half_turn(upright.image))
+        return upright
 
 
 def quarter_turn(image: np.ndarray) -> Upright:

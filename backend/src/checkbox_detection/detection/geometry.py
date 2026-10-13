@@ -1,6 +1,7 @@
-"""Pure box geometry helpers."""
+"""Pure box geometry helpers, and `Upright`, the page as stage 0 leaves it."""
 
 import math
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -8,6 +9,7 @@ from checkbox_detection.detection.types import Box, Rect
 
 
 def iou(a: Rect, b: Rect) -> float:
+    """Intersection over union: how much two rects overlap, from 0 (apart) to 1 (identical)."""
     ix = max(0, min(a.x2, b.x2) - max(a.x1, b.x1))
     iy = max(0, min(a.y2, b.y2) - max(a.y1, b.y1))
     inter = ix * iy
@@ -72,6 +74,30 @@ def map_rect(rect: Rect, matrix: np.ndarray, width: int, height: int) -> Rect:
         min(max(round(y2), 0), height),
         rect.score,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class Upright:
+    """A page after one or more stage 0 steps, with the affine that maps its pixels back."""
+
+    image: np.ndarray  # the page as the stages see it
+    to_original: np.ndarray  # 2x3 affine, upright pixels -> original pixels
+    original_size: tuple[int, int]  # (width, height) of the original page, to clamp boxes
+
+    @classmethod
+    def identity(cls, image: np.ndarray) -> "Upright":
+        """`image` as it is: no step."""
+        return cls(image, np.eye(2, 3), (image.shape[1], image.shape[0]))
+
+    def boxes_to_original(self, boxes: list[Box]) -> list[Box]:
+        """Each box as the axis-aligned box around its mapped corners; the order is kept."""
+        w, h = self.original_size
+        return [replace(b, rect=map_rect(b.rect, self.to_original, w, h)) for b in boxes]
+
+    def then(self, step: "Upright") -> "Upright":
+        """`step`, computed on `self.image`, as one step from the original page."""
+        to_original = self.to_original @ np.vstack([step.to_original, [0, 0, 1]])
+        return Upright(step.image, to_original, self.original_size)
 
 
 def tile_windows(

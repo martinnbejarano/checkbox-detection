@@ -18,7 +18,6 @@ from checkbox_detection.detection.types import Rect
 @dataclass(frozen=True, slots=True)
 class FillParams:
     # Tuned on validation by training/search.py fill.
-    # Interior = the box shrunk by max(border + border_gap_frac * side, min_margin_frac * side).
     # Smallest inset, as a share of the side.
     min_margin_frac: float = 0.2
     # Gap kept past the measured border, as a share of the side.
@@ -60,7 +59,6 @@ def mark_ratio(binary: np.ndarray, rect: Rect, params: FillParams) -> float:
     x1, y1, x2, y2 = rect.x1 - cx1, rect.y1 - cy1, rect.x2 - cx1, rect.y2 - cy1
 
     # Strokes without the box's own edges, so a mark and the border are separate components.
-    # Where a stroke crossed an edge it lost a few px; only those px are bridged back.
     strokes = remove_lines(crop, int(params.edge_length_frac * side))
     # Each stroke takes in the edge ink within about one border of it, which fills the gap where
     # it crossed the edge. A closing does not: at a shallow angle the gap along the stroke is

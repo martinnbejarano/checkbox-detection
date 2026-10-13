@@ -1,8 +1,13 @@
 import numpy as np
 import pytest
 
-from checkbox_detection.detection.deskew import Upright
-from checkbox_detection.detection.geometry import map_rect, nms, sort_reading_order, tile_windows
+from checkbox_detection.detection.geometry import (
+    Upright,
+    map_rect,
+    nms,
+    sort_reading_order,
+    tile_windows,
+)
 from checkbox_detection.detection.orient import half_turn, quarter_turn
 from checkbox_detection.detection.types import Box, Rect
 

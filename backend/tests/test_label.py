@@ -4,6 +4,7 @@ import pytest
 from conftest import blank_page, draw_box
 
 from checkbox_detection.detection.label import LabelParams, RapidOcrLabeler, label_strip
+from checkbox_detection.detection.ocr import load_ocr
 from checkbox_detection.detection.types import Rect
 
 
@@ -17,7 +18,7 @@ def test_reads_text_right_of_box() -> None:
     draw_box(img, 100, 200, 30, "empty")
     write(img, "Urban", 140, 225)
 
-    labels = RapidOcrLabeler(1).label(img, [Rect(100, 200, 130, 230, 1.0)])
+    labels = RapidOcrLabeler(load_ocr(1)).label(img, [Rect(100, 200, 130, 230, 1.0)])
 
     assert labels == ["Urban"]
 
@@ -27,7 +28,7 @@ def test_nothing_right_of_box_is_none(x: int) -> None:
     img = blank_page(1000, 400)
     draw_box(img, x, 200, 30, "empty")
 
-    labels = RapidOcrLabeler(1).label(img, [Rect(x, 200, x + 30, 230, 1.0)])
+    labels = RapidOcrLabeler(load_ocr(1)).label(img, [Rect(x, 200, x + 30, 230, 1.0)])
 
     assert labels == [None]
 
@@ -40,7 +41,7 @@ def test_strip_stops_at_next_box_on_row() -> None:
     write(img, "Rural", 280, 225)
     rects = [Rect(100, 200, 130, 230, 1.0), Rect(240, 200, 270, 230, 1.0)]
 
-    labels = RapidOcrLabeler(1).label(img, rects)
+    labels = RapidOcrLabeler(load_ocr(1)).label(img, rects)
 
     assert labels == ["Urban", "Rural"]
 

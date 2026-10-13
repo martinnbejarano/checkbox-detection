@@ -1,14 +1,13 @@
 """Stage 0: straighten a page tilted up to a few degrees, by projection profile."""
 
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
 
 from checkbox_detection.detection.binarize import binarize, to_clean_gray
-from checkbox_detection.detection.geometry import map_rect
-from checkbox_detection.detection.types import Box
+from checkbox_detection.detection.geometry import Upright
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,28 +19,6 @@ class DeskewParams:
     step: float = 0.25
     # Below this tilt, in degrees, the page is returned as is (no warp).
     min_angle: float = 0.3
-
-
-@dataclass(frozen=True, slots=True)
-class Upright:
-    image: np.ndarray  # the page as the stages see it
-    to_original: np.ndarray  # 2x3 affine, upright pixels -> original pixels
-    original_size: tuple[int, int]  # (width, height) of the original page, to clamp boxes
-
-    @classmethod
-    def identity(cls, image: np.ndarray) -> "Upright":
-        """`image` as it is: no step."""
-        return cls(image, np.eye(2, 3), (image.shape[1], image.shape[0]))
-
-    def boxes_to_original(self, boxes: list[Box]) -> list[Box]:
-        """Each box as the axis-aligned box around its mapped corners; the order is kept."""
-        w, h = self.original_size
-        return [replace(b, rect=map_rect(b.rect, self.to_original, w, h)) for b in boxes]
-
-    def then(self, step: "Upright") -> "Upright":
-        """`step`, computed on `self.image`, as one step from the original page."""
-        to_original = self.to_original @ np.vstack([step.to_original, [0, 0, 1]])
-        return Upright(step.image, to_original, self.original_size)
 
 
 def skew_angle(binary: np.ndarray, params: DeskewParams) -> float:
@@ -68,18 +45,27 @@ def deskew(image: np.ndarray) -> Upright:
     params = DeskewParams()
     h, w = image.shape[:2]
     gray = to_clean_gray(image)
+    # The angle is the same at any size; searching it small is faster.
     scale = params.work_px / max(h, w)
     if scale < 1:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
     angle = skew_angle(binarize(gray), params)
     if abs(angle) < params.min_angle:
         return Upright.identity(image)
+    rotated, m = rotate_whole(image, angle)
+    return Upright(rotated, cv2.invertAffineTransform(m), (w, h))
 
+
+def rotate_whole(image: np.ndarray, angle: float) -> tuple[np.ndarray, np.ndarray]:
+    """`image` rotated `angle` degrees on a canvas enlarged to keep every corner, filled with
+    white; and the 2x3 affine used."""
+    h, w = image.shape[:2]
     m = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1)
     cos, sin = abs(math.cos(math.radians(angle))), abs(math.sin(math.radians(angle)))
     new_w, new_h = math.ceil(w * cos + h * sin), math.ceil(w * sin + h * cos)
+    # Shift so the page is centred on the larger canvas.
     m[0, 2] += (new_w - w) / 2
     m[1, 2] += (new_h - h) / 2
     white = (255,) * (image.shape[2] if image.ndim == 3 else 1)
     rotated = cv2.warpAffine(image, m, (new_w, new_h), flags=cv2.INTER_LINEAR, borderValue=white)
-    return Upright(rotated, cv2.invertAffineTransform(m), (w, h))
+    return rotated, m
