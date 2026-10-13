@@ -1,0 +1,68 @@
+/* The empty state's piece: the process told in ink dots, on a loop (story.ts). Decoration only;
+   nothing else depends on it. */
+
+/* The steps under the canvas are status, not controls. */
+.reader {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+}
+
+/* On the first upload the piece morphs into the document's sheet. */
+.reader canvas {
+  display: block;
+  width: 100%;
+  height: min(600px, 66vh);
+  view-transition-name: sheet;
+}
+
+.steps {
+  display: flex;
+  gap: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.steps li {
+  position: relative;
+  padding-bottom: 7px;
+  transition: color 300ms var(--ease);
+}
+
+.steps-n {
+  margin-right: 6px;
+  font-size: 11px;
+}
+
+.steps li[data-now] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.steps i {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.steps li:not([data-now]) i {
+  opacity: 0;
+}
+
+@media (max-width: 560px) {
+  .reader canvas {
+    height: min(520px, 70vh);
+  }
+
+  .steps {
+    gap: 16px;
+  }
+}

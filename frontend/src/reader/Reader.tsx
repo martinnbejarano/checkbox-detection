@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { startReader } from './story'
+import './reader.css'
 
 const STEPS = ['Scan', 'Align', 'Extract', 'Read out']
 

@@ -2,7 +2,7 @@ import { useRef, useState, type DragEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { ACCEPT } from './api'
 import { UploadIcon } from './icons'
-import { Reader } from './Reader'
+import { Reader } from './reader/Reader'
 import { Workspace } from './Workspace'
 
 // Copies of samples/ served from public/ (plus a small .webp preview each), for reviewers without a form at hand.
