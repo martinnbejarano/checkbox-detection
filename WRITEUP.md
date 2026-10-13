@@ -57,6 +57,30 @@ So a straighten stage now runs before detection. RapidOCR finds the text lines, 
 
 It is the best combination on both sets and makes no false checks on the external set. It also holds across scale, at 99.3% at 0.5×, 1× and 1.5×, while OpenCV loses 17 points at half size. OpenCV + `fill_ratio` stays as the baseline and as the fallback that needs no model files.
 
+## Models and algorithms
+
+This is the default pipeline, yolox + cnn, chosen after evaluating every combination (section 6). The classical baseline, opencv + fill_ratio, is described in section 2. Every stage works on a gray page, with colour overlays such as red watermarks and blue cell fills turned white first. The models run on onnxruntime.
+
+### Straighten
+
+RapidOCR's text detector finds the text lines on the page shrunk to 1,600 px. If most lines are taller than wide, the page is turned 90°. The tilt is then found by projection profile: the binarized page is rotated by every angle from -10° to +10° in steps of 0.25°, and the angle whose row sums have the highest variance wins, because level text lines give peaky sums. Last, the 10 widest lines are read as they are and turned 180°; if the turned copies score higher, the page is upside down. A page with fewer than 5 text lines is left alone. Boxes are mapped back to the original pixels through the inverse affine transform.
+
+### Locate
+
+YOLOX-Nano is a one-stage, anchor-free detector (depth 0.33, width 0.25, depthwise convolutions). The published checkpoint, `nutrientdocs/form-field-v1-nano`, has three classes: Text, ChoiceButton and Signature. The page is cut into tiles 0.6 page widths wide with 8% overlap, each letterboxed to 640×640 on the grey the model was trained with. The model returns 8,400 rows of [cx, cy, w, h, objectness, 3 class probabilities]; a row is a checkbox when objectness × P(ChoiceButton) ≥ 0.2 and ChoiceButton is the top class. Tiles are merged with NMS at IoU 0.3, and boxes under 8 px or over 6% of the page width are dropped.
+
+Fine-tuning ran 20 epochs of 4,000 random tiles, SGD with Nesterov momentum and a OneCycle schedule at lr 0.002, EMA weights, and scan-like augmentation (contrast, blur, noise). The epoch with the best F2 on 200 validation pages was exported back to ONNX with the published input and output names, so the service only swaps the file.
+
+### Classify
+
+`nutrientdocs/form-field-v1-state` is a 96k-parameter network: a 3×3 convolution, five depthwise-separable blocks from 32 to 192 channels, global average pooling and a linear layer to two classes. The input is the box padded by 5% of its side, letterboxed to 40×160 gray and scaled to [-1, 1]; all crops of a page go in one batch. Softmax gives P(filled). The cut is 0.7 instead of the model's own 0.5, so an ambiguous crop comes out unchecked.
+
+Fine-tuning ran 12 epochs with AdamW at lr 0.002 and class-weighted cross entropy. Augmentation adds contrast, brightness and noise, plus 1 to 3 specks in half of the empty crops; without them the model read any dot inside a box as checked. The epoch with the best balanced accuracy on validation was exported.
+
+### Label
+
+RapidOCR's recogniser (PP-OCR on onnxruntime) reads a strip right of each box: the box's row band, starting 5% of the side past the edge and ending at the next box on the row, a vertical rule, a blank gap of one box side after the text, or 15 box sides. Text with recognition confidence below 0.5 is dropped.
+
 ## Evaluation
 
 The numbers come from `make eval` on an Apple M4 with one thread. Neither set was used for tuning.
@@ -70,7 +94,6 @@ A box counts only if it was found at IoU ≥ 0.5 with the right state. `test_gol
 
 ### End-to-end accuracy per combination
 
-
 | Combination           | Samples | External | p50 ms/page (samples) |
 | --------------------- | -------: | --------: | ---------------------: |
 | opencv + fill\_ratio  | 96.9    | 49.9     | 1441                  |
@@ -78,11 +101,9 @@ A box counts only if it was found at IoU ≥ 0.5 with the right state. `test_gol
 | yolox + fill\_ratio   | 98.8    | 70.4     | 1459                  |
 | yolox + cnn (default) | 99.3    | 71.8     | 1378                  |
 
-
 ### Before and after tuning
 
 "Before" is the pretrained models with the earlier parameters. Only the 4 original pages existed then.
-
 
 | Combination          | 4 original pages, before | After | External, before | After |
 | -------------------- | ------------------------: | -----: | ----------------: | -----: |
@@ -90,7 +111,6 @@ A box counts only if it was found at IoU ≥ 0.5 with the right state. `test_gol
 | opencv + cnn         | 96.9                     | 96.9  | 50.8             | 50.8  |
 | yolox + fill\_ratio  | 98.6                     | 99.0  | 45.6             | 70.4  |
 | yolox + cnn          | 99.0                     | 99.0  | 57.3             | 71.8  |
-
 
 ## Alternatives considered
 
@@ -118,6 +138,7 @@ What does not:
 - Round radio buttons are out of scope, since the labeling policy only counts printed squares and rectangles. Box styles that appear in neither the samples nor the training data, such as rounded corners or dashed borders, are untested and likely missed by `opencv`.
 - Labels are read only to the right of the box. A box whose label sits on its left (the utilities table on the 1004) gets `null` or a stray glyph, and long sentence labels can come out garbled.
 - The CNN reads a stroke that crosses an empty box as checked. `fill_ratio` handles that case but is less accurate on the external set overall.
+- A request has no timeout and is not cancelled when the client disconnects: a 100-page PDF keeps a worker busy for about 2 minutes either way. The page cap is the only limit.
 
 ## Next steps
 

@@ -57,11 +57,11 @@ Swap `http://localhost:8000` for the demo URL to try the deployed instance.
 
 ### Demo page
 
-Open the demo page (port 8000 with Docker, 5173 locally) and drop a form on it, or pick one of the four sample pages under the drop target.
+Open the demo page (<https://homevision.martinbejarano.com>, or port 8000 with Docker and 5173 locally) and drop a form on it, or pick one of the four sample pages under the drop target.
 
-1. **Results:** the page appears with a mark on every box: hatched green for checked, open red for unchecked, dashed orange for low confidence (`score` below 0.3). The Detections list fills on the right.
-2. **Hover and click:** hover a row and a leader line joins it to its box, the box is circled and its extent shows on the rulers. Hover a box and its row highlights. Click a row and the page scrolls to the box.
-3. **Multi-page PDFs:** each page's detections appear as soon as that page is read. The pager switches pages and the list follows.
+- Results: the page appears with a mark on every box: hatched green for checked, open red for unchecked, dashed orange for low confidence (`score` below 0.3). The Detections list fills on the right.
+- Hover and click: hover a row and a leader line joins it to its box, the box is circled and its extent shows on the rulers. Hover a box and its row highlights. Click a row and the page scrolls to the box.
+- Multi-page PDFs: each page's detections appear as soon as that page is read. The pager switches pages and the list follows.
 
 ## How it works
 
@@ -76,12 +76,12 @@ flowchart LR
     classify -. "?labels=true" .-> label["label<br>RapidOCR"] -.-> boxes
 ```
 
-The default pipeline is **yolox + cnn**. `opencv` and `fill_ratio` are the classical baseline, kept as the fallback that needs no model files.
+The default pipeline is **yolox + cnn**, chosen after evaluating every locator and classifier combination on the samples and on an external set (see [WRITEUP.md](WRITEUP.md)). `opencv` and `fill_ratio` are the classical baseline that came first, kept as the fallback that needs no model files.
 
-1. **Straighten:** turn the page upright and level, then map the boxes back to the original pixels (`detection/orient.py`, `detection/deskew.py`).
-2. **Locate:** find the boxes (`detection/locate/`).
-3. **Classify:** decide whether each box is checked (`detection/classify/`).
-4. **Label:** read the text to the right of each box, only with `?labels=true` (`detection/label.py`).
+1. Straighten: turn the page upright and level, then map the boxes back to the original pixels (`detection/orient.py`, `detection/deskew.py`).
+2. Locate: find the boxes (`detection/locate/`).
+3. Classify: decide whether each box is checked (`detection/classify/`).
+4. Label: read the text to the right of each box, only with `?labels=true` (`detection/label.py`).
 
 `backend/src/checkbox_detection/detection/__init__.py` is the file to read first. `Pipeline.detect` calls the stages by name, so the order is visible in one place.
 
@@ -98,18 +98,18 @@ Locate and classify have two implementations each. `CHECKBOX_LOCATOR` / `CHECKBO
 
 Why it is built this way:
 
-- **Locate and classify are separate:** each part is measured and swapped alone. A detector that also predicts the state has to be right about both at once, and you can't tell which half failed.
-- **The classical pipeline came first:** it needs no data or weights, and every threshold can be read. It stays as the baseline and as the fallback that runs without model files.
-- **The learned models are tiny ONNX files:** they run on onnxruntime, so the service needs no PyTorch at runtime.
+- Locate and classify are separate, so each part is measured and swapped alone. A detector that also predicts the state has to be right about both at once, and you can't tell which half failed.
+- The classical pipeline came first because it needs no data or weights, and every threshold can be read. It stays as the baseline and as the fallback that runs without model files.
+- The learned models are tiny ONNX files that run on onnxruntime, so the service needs no PyTorch at runtime.
 
 ### Tuning
 
 The 4 original sample pages are too few to tune on, so every stage was tuned on public data and the samples are only used to evaluate.
 
-- **Training data:** synthetic pages made from the official blank 1004, 1004C and 1004MC PDFs (boxes marked at random, rendered at 100 to 300 DPI and degraded like a scan) plus five CC BY 4.0 Roboflow checkbox datasets. 3,205 pages and 48,414 boxes for training, 610 pages and 10,426 boxes for validation. The split is by source form: the synthetic 1004C is the validation form.
-- **Models:** `yolox` and `cnn` were fine-tuned from their published checkpoints and exported back to ONNX with the same inputs and outputs, so only the model file changed.
-- **Parameters:** the `*Params` of every stage were chosen by search on validation. A value only moved when it gained at least half a point.
-- **Isolation:** `training/` is its own uv project with PyTorch. The service never imports it, and it never reads the samples or the external set.
+- Training data: synthetic pages made from the official blank 1004, 1004C and 1004MC PDFs (boxes marked at random, rendered at 100 to 300 DPI and degraded like a scan) plus five CC BY 4.0 Roboflow checkbox datasets. 3,205 pages and 48,414 boxes for training, 610 pages and 10,426 boxes for validation. The split is by source form: the synthetic 1004C is the validation form.
+- Models: `yolox` and `cnn` were fine-tuned from their published checkpoints and exported back to ONNX with the same inputs and outputs, so only the model file changed.
+- Parameters: the `*Params` of every stage were chosen by search on validation. A value only moved when it gained at least half a point.
+- Isolation: `training/` is its own uv project with PyTorch. The service never imports it, and it never reads the samples or the external set.
 
 ## API
 
@@ -163,6 +163,6 @@ Environment variables with the prefix `CHECKBOX_`. The defaults need none.
 
 ## Repository
 
-- **`backend/`:** the service (`src/`), offline tuning (`training/`), `scripts/evaluate.py`, tests and the Dockerfile.
-- **`frontend/`:** the demo page (React, Vite, TypeScript). `src/reader/` is the animated empty state; it is decoration and nothing else depends on it.
-- **`samples/`:** the pages used for evaluation, with ground truth in `backend/tests/data/ground_truth/`.
+- `backend/`: the service (`src/`), offline tuning (`training/`), `scripts/evaluate.py`, tests and the Dockerfile.
+- `frontend/`: the demo page (React, Vite, TypeScript). `src/reader/` is the animated empty state; it is decoration and nothing else depends on it.
+- `samples/`: the pages used for evaluation, with ground truth in `backend/tests/data/ground_truth/`.
