@@ -166,6 +166,7 @@ Environment variables with the prefix `CHECKBOX_`. The defaults need none.
 - `backend/`: the service (`src/`), offline tuning (`training/`), `scripts/evaluate.py`, tests and the Dockerfile.
 - `frontend/`: the demo page (React, Vite, TypeScript). `src/reader/` is the animated empty state; it is decoration and nothing else depends on it.
 - `samples/`: the pages used for evaluation, with ground truth in `backend/tests/data/ground_truth/`.
+- `WRITEUP.md`: the approach, the tradeoffs and the known limitations.
 
 ## License
 

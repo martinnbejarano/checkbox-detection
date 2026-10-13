@@ -1,4 +1,4 @@
-# TODO(prod): auth and rate limiting in front of the public URL.
+# TODO: auth and rate limiting in front of the public URL.
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "backend/Dockerfile"
