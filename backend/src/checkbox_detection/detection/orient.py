@@ -6,7 +6,8 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 from rapidocr import RapidOCR
-from rapidocr.ch_ppocr_rec import TextRecInput
+from rapidocr.ch_ppocr_det import TextDetector
+from rapidocr.ch_ppocr_rec import TextRecInput, TextRecognizer
 
 from checkbox_detection.detection.binarize import to_clean_gray
 from checkbox_detection.detection.deskew import deskew
@@ -32,16 +33,20 @@ class Orienter:
     """`ocr` is shared with stage 3 (`label.py`); only its models are called here."""
 
     def __init__(self, ocr: RapidOCR) -> None:
-        self.ocr = ocr
+        # The models are called directly: `ocr(...)` keeps its use_det/use_rec flags on the shared
+        # instance, which the labeler may be using at the same time. Each is loaded once, here,
+        # and kept for the life of the pipeline.
+        self.detector = ocr._load_det_model()  # type: ignore[no-untyped-call]
+        self.recognizer = ocr._load_rec_model()  # type: ignore[no-untyped-call]
 
     def straighten(self, image: np.ndarray) -> Upright:
         """The stages take `upright.image`; `upright.boxes_to_original` maps their boxes back to
         `image`. Quarter turn, then deskew, then half turn: upside down is told apart on a level
         page only."""
-        lines = text_lines(image, self.ocr)
+        lines = text_lines(image, self.detector)
         upright = quarter_turn(image) if is_sideways(lines) else Upright.identity(image)
         upright = upright.then(deskew(upright.image))
-        if is_upside_down(upright, lines, self.ocr):
+        if is_upside_down(upright, lines, self.recognizer):
             upright = upright.then(half_turn(upright.image))
         return upright
 
@@ -60,16 +65,13 @@ def half_turn(image: np.ndarray) -> Upright:
     return Upright(cv2.rotate(image, cv2.ROTATE_180), np.array([[-1.0, 0, w], [0, -1, h]]), (w, h))
 
 
-def text_lines(image: np.ndarray, ocr: RapidOCR) -> np.ndarray:
+def text_lines(image: np.ndarray, detector: TextDetector) -> np.ndarray:
     """Corners of each text line, (n, 4, 2) in `image` pixels."""
     gray = to_clean_gray(image)
     scale = PARAMS.work_px / max(gray.shape)
     if scale < 1:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
-    # The models are called directly: `ocr(...)` keeps its use_det/use_rec flags on the shared
-    # instance, which the labeler may be using at the same time.
-    detect = ocr._load_det_model()  # type: ignore[no-untyped-call]
-    out = detect(cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR))
+    out = detector(cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR))
     return np.zeros((0, 4, 2)) if out.boxes is None else out.boxes / min(scale, 1)
 
 
@@ -81,7 +83,7 @@ def is_sideways(lines: np.ndarray) -> bool:
     return bool((h > w).mean() > 0.5)
 
 
-def is_upside_down(level: Upright, lines: np.ndarray, ocr: RapidOCR) -> bool:
+def is_upside_down(level: Upright, lines: np.ndarray, recognizer: TextRecognizer) -> bool:
     """The widest `lines` (original page pixels) read better turned 180° on `level.image`."""
     if len(lines) < PARAMS.min_lines:
         return False
@@ -96,7 +98,6 @@ def is_upside_down(level: Upright, lines: np.ndarray, ocr: RapidOCR) -> bool:
         crop = to_clean_gray(level.image[y1 : min(int(y2) + 1, h), x1:x2])
         probes.append(cv2.cvtColor(crop, cv2.COLOR_GRAY2BGR))
     turned = [cv2.rotate(p, cv2.ROTATE_180) for p in probes]
-    recognize = ocr._load_rec_model()  # type: ignore[no-untyped-call]
-    scores = recognize(TextRecInput(img=probes + turned)).scores
+    scores = recognizer(TextRecInput(img=probes + turned)).scores
     n = len(probes)
     return bool(np.mean(scores[n:]) > np.mean(scores[:n]))

@@ -17,7 +17,5 @@ def load_ocr(threads: int) -> RapidOCR:
         }
     )
 
-    ocr._load_rec_model()  # type: ignore[no-untyped-call]
-    ocr._load_det_model()  # type: ignore[no-untyped-call]
     ocr(np.full((32, 320), 255, np.uint8), use_det=False, use_cls=False, use_rec=True)
     return ocr
