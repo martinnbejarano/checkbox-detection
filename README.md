@@ -140,7 +140,7 @@ frontend/         demo page (React, Vite, TypeScript)
   src/reader/     animated empty state, decoration only
 samples/          pages used for evaluation
 WRITEUP.md        how the design was reached, why yolox + cnn,
-                  how it was evaluated, results, alternatives,
+                  how it was evaluated, results,
                   limitations and next steps
 ```
 
