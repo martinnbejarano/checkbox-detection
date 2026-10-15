@@ -5,6 +5,8 @@ Checkbox detection for scanned forms: finds the checkboxes on a document page, s
 - Demo page: <https://homevision.martinbejarano.com>
 - API: <https://homevision.martinbejarano.com/detect> (interactive docs at [`/docs`](https://homevision.martinbejarano.com/docs))
 
+![Demo: a sample appraisal page with every checkbox marked and the detections listed](docs/demo.gif)
+
 ## Quick start
 
 ```sh
