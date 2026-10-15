@@ -7,25 +7,11 @@ Checkbox detection for scanned forms: finds the checkboxes on a document page, s
 
 ## Quick start
 
-### Docker
-
 ```sh
-make docker-build
-make docker-run
+docker compose up
 ```
 
-Open <http://localhost:8000> for the demo page. The image holds the API, the built frontend and the two fine-tuned models, so it needs nothing else.
-
-### Local
-
-Needs uv and Node.
-
-```sh
-make install
-make models         # pretrained model files from Hugging Face
-make run            # API on :8000
-make frontend-dev   # demo page on :5173, in a second terminal
-```
+Open <http://localhost:8000> for the demo page; the API is on the same port. The image holds the API, the built frontend and the two fine-tuned models, so it needs nothing else.
 
 ### curl
 
@@ -36,7 +22,8 @@ curl -F file=@samples/sample-003.png http://localhost:8000/detect
 ```json
 {"boxes": [
   {"bbox": [455, 397, 489, 430], "is_checked": true,  "page": 0, "score": 0.869},
-  {"bbox": [590, 398, 621, 431], "is_checked": false, "page": 0, "score": 0.905}
+  {"bbox": [590, 398, 621, 431], "is_checked": false, "page": 0, "score": 0.905},
+  …
 ]}
 ```
 
@@ -49,7 +36,8 @@ curl -F file=@samples/sample-003.png "http://localhost:8000/detect?labels=true"
 ```json
 {"boxes": [
   {"bbox": [455, 397, 489, 430], "is_checked": true,  "page": 0, "score": 0.869, "label": "Owner"},
-  {"bbox": [590, 398, 621, 431], "is_checked": false, "page": 0, "score": 0.905, "label": "Tenant"}
+  {"bbox": [590, 398, 621, 431], "is_checked": false, "page": 0, "score": 0.905, "label": "Tenant"},
+  …
 ]}
 ```
 
@@ -57,11 +45,7 @@ Swap `http://localhost:8000` for the demo URL to try the deployed instance.
 
 ### Demo page
 
-Open the demo page (<https://homevision.martinbejarano.com>, or port 8000 with Docker and 5173 locally) and drop a form on it, or pick one of the four sample pages under the drop target.
-
-- Results: the page appears with a mark on every box: hatched green for checked, open red for unchecked, dashed orange for low confidence (`score` below 0.3). The Detections list fills on the right.
-- Hover and click: hover a row and a leader line joins it to its box, the box is circled and its extent shows on the rulers. Hover a box and its row highlights. Click a row and the page scrolls to the box.
-- Multi-page PDFs: each page's detections appear as soon as that page is read. The pager switches pages and the list follows.
+Open the demo page (<https://homevision.martinbejarano.com>, or <http://localhost:8000>) and drop a form on it, or pick one of the four sample pages. Checked boxes are marked green, unchecked red, and low-confidence ones (`score` below 0.3) dashed orange; multi-page PDFs fill in page by page.
 
 ## How it works
 
@@ -70,13 +54,13 @@ Each page goes through four stages:
 ```mermaid
 flowchart LR
     upload([upload]) --> straighten["straighten<br>orient, deskew"]
-    straighten --> locate["locate<br>yolox (default)<br>opencv (fallback)"]
-    locate --> classify["classify<br>cnn (default)<br>fill_ratio (fallback)"]
+    straighten --> locate["locate<br>yolox (default)<br>opencv (baseline)"]
+    locate --> classify["classify<br>cnn (default)<br>fill_ratio (baseline)"]
     classify --> boxes([boxes])
     classify -. "?labels=true" .-> label["label<br>RapidOCR"] -.-> boxes
 ```
 
-The default pipeline is **yolox + cnn**, chosen after evaluating every locator and classifier combination on the samples and on an external set (see [WRITEUP.md](WRITEUP.md)). `opencv` and `fill_ratio` are the classical baseline that came first, kept as the fallback that needs no model files.
+The default pipeline is **yolox + cnn**, chosen after evaluating every locator and classifier combination on the samples and on an external set (see [WRITEUP.md](WRITEUP.md)). `opencv` and `fill_ratio` are the classical baseline that came first, and can be selected with `CHECKBOX_LOCATOR=opencv CHECKBOX_CLASSIFIER=fill_ratio` when the model files are not available.
 
 1. Straighten: turn the page upright and level, then map the boxes back to the original pixels (`detection/orient.py`, `detection/deskew.py`).
 2. Locate: find the boxes (`detection/locate/`).
@@ -99,17 +83,12 @@ Locate and classify have two implementations each. `CHECKBOX_LOCATOR` / `CHECKBO
 Why it is built this way:
 
 - Locate and classify are separate, so each part is measured and swapped alone. A detector that also predicts the state has to be right about both at once, and you can't tell which half failed.
-- The classical pipeline came first because it needs no data or weights, and every threshold can be read. It stays as the baseline and as the fallback that runs without model files.
+- The classical pipeline came first because it needs no data or weights, and every threshold can be read. It stays as the baseline, and can be selected with `CHECKBOX_LOCATOR=opencv CHECKBOX_CLASSIFIER=fill_ratio` when the model files are not available.
 - The learned models are tiny ONNX files that run on onnxruntime, so the service needs no PyTorch at runtime.
 
 ### Tuning
 
-The 4 original sample pages are too few to tune on, so every stage was tuned on public data and the samples are only used to evaluate.
-
-- Training data: synthetic pages made from the official blank 1004, 1004C and 1004MC PDFs (boxes marked at random, rendered at 100 to 300 DPI and degraded like a scan) plus five CC BY 4.0 Roboflow checkbox datasets. 3,205 pages and 48,414 boxes for training, 610 pages and 10,426 boxes for validation. The split is by source form: the synthetic 1004C is the validation form.
-- Models: `yolox` and `cnn` were fine-tuned from their published checkpoints and exported back to ONNX with the same inputs and outputs, so only the model file changed.
-- Parameters: the `*Params` of every stage were chosen by search on validation. A value only moved when it gained at least half a point.
-- Isolation: `training/` is its own uv project with PyTorch. The service never imports it, and it never reads the samples or the external set.
+The 4 original sample pages are too few to tune on, so every stage was tuned on public data and the samples are only used to evaluate. Known limits: labels are read only right of the box, round radio buttons are out of scope, and orientation costs about 1.2 s per page. Both are covered in [WRITEUP.md](WRITEUP.md).
 
 ## API
 
@@ -144,29 +123,37 @@ The same request and boxes as `/detect`, as `application/x-ndjson`: one line per
 
 Every upload check runs before the first line, so a rejected upload gets the same problem+json error as `/detect`. A failure after the first line ends the stream with one `{"error": "..."}` line. The demo page uses this endpoint.
 
-### Settings
+## Project structure
 
-Environment variables with the prefix `CHECKBOX_`. The defaults need none.
+```
+backend/
+  src/checkbox_detection/
+    api/          HTTP routes, schemas, errors
+    detection/    the pipeline; start at __init__.py
+    imaging/      decoding images and PDFs
+  models/         fine-tuned ONNX models used by the service
+  training/       offline tuning, its own uv project with PyTorch
+  scripts/        evaluate.py
+  tests/          tests, ground truth in tests/data/ground_truth/
+  Dockerfile
+frontend/         demo page (React, Vite, TypeScript)
+  src/reader/     animated empty state, decoration only
+samples/          pages used for evaluation
+WRITEUP.md        how the design was reached, why yolox + cnn,
+                  how it was evaluated, results, alternatives,
+                  limitations and next steps
+```
 
-| Variable | Default |
-| --- | --- |
-| `CHECKBOX_LOCATOR` | `yolox` (or `opencv`, which needs no model file) |
-| `CHECKBOX_CLASSIFIER` | `cnn` (or `fill_ratio`, which needs no model file) |
-| `CHECKBOX_MODELS_DIR` | `models`, relative to `backend/` |
-| `CHECKBOX_ONNX_THREADS`, `CHECKBOX_CV_THREADS` | 1 each; scale with uvicorn workers instead |
-| `CHECKBOX_MAX_UPLOAD_BYTES` | 50 MiB |
-| `CHECKBOX_MAX_PDF_PAGES` | 100 |
-| `CHECKBOX_MAX_IMAGE_PIXELS` | 50,000,000 |
-| `CHECKBOX_PDF_DPI` | 300 |
-| `CHECKBOX_LOG_LEVEL` | `INFO` |
-| `CHECKBOX_STATIC_DIR` | unset; the Docker image sets it to serve the demo page at `/` |
+## Development
 
-## Repository
+Needs [uv](https://docs.astral.sh/uv/) and Node.
 
-- `backend/`: the service (`src/`), offline tuning (`training/`), `scripts/evaluate.py`, tests and the Dockerfile.
-- `frontend/`: the demo page (React, Vite, TypeScript). `src/reader/` is the animated empty state; it is decoration and nothing else depends on it.
-- `samples/`: the pages used for evaluation, with ground truth in `backend/tests/data/ground_truth/`.
-- `WRITEUP.md`: the approach, the tradeoffs and the known limitations.
+```sh
+make install
+make run            # API on :8000
+make frontend-dev   # demo page on :5173, proxies to the API
+make check          # lint, typecheck, tests, frontend build
+```
 
 ## License
 
