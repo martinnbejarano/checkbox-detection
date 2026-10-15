@@ -21,6 +21,7 @@ from checkbox_detection.detection.binarize import to_clean_gray
 from checkbox_detection.detection.classify.state_cnn import (
     HEIGHT,
     MEAN,
+    MODEL_FILE,
     STD,
     WIDTH,
     crop,
@@ -28,7 +29,7 @@ from checkbox_detection.detection.classify.state_cnn import (
 from checkbox_detection.detection.types import Rect
 
 PRETRAINED_ONNX = MODELS / "form-field-v1-state.onnx"
-OUT_ONNX = MODELS / "form-field-v1-state-tuned.onnx"
+OUT_ONNX = MODELS / MODEL_FILE
 STATE_URL = "https://huggingface.co/nutrientdocs/form-field-v1-state/resolve/62b1049a066d63eacf0f3542dc155b11c7284883/state_cnn.pt"
 
 # A locator's box is a few px off; train crops move each edge by up to this share of the side.

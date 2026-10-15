@@ -42,6 +42,7 @@ from checkbox_detection.detection.binarize import to_clean_gray
 from checkbox_detection.detection.locate.yolox import (
     CHOICE_BUTTON,
     INPUT,
+    MODEL_FILE,
     YoloxLocator,
     letterbox,
 )
@@ -60,7 +61,7 @@ def _mps_aware_type(self: torch.Tensor, dtype: Any = None, *args: Any, **kwargs:
 torch.Tensor.type = _mps_aware_type  # type: ignore[method-assign]
 
 PRETRAINED_ONNX = MODELS / "form-field-v1-nano.onnx"
-OUT_ONNX = MODELS / "form-field-v1-nano-tuned.onnx"
+OUT_ONNX = MODELS / MODEL_FILE
 CKPT_URL = "https://huggingface.co/nutrientdocs/form-field-v1-nano/resolve/7cbc1ecd55d59f6315a1415dddc59c3c8b115f05/best_ckpt.pth"
 
 # Tile side as a share of the page width: around the service's 0.6, wide enough that the model
