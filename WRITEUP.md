@@ -20,7 +20,7 @@ Before developing any detector, I labeled the 4 original samples (288 bounding b
 
 OpenCV + `fill_ratio` came first because it needs no data or weights and every threshold can be read.
 
-On the 4 samples it scored 96.9% end-to-end, 279 of 288 boxes. All 9 misses were boxes it did not find, since every box it found had the right state. Five of them touch a table rule; the other two tagged misses are the box under the watermark and the box with handwriting.
+On the 4 samples it scored 96.9% end-to-end, 279 of 288 boxes. All 9 misses were boxes it did not find, since every box it found had the right state. Five touch a table rule, one sits under the watermark and one has handwriting over it. The last two are printed so faintly that their border breaks up when binarized: one drawn in light gray, and one checked box whose border and X are mostly washed out.
 
 On the external set it scored 47.5%, 199 of 419. It found only half the boxes (recall 51.8%), because those boxes are 12 to 31 px and often drawn as a `☐` character, outside the size and shape rules tuned on the 1004. Six of every ten boxes it returned were not annotated checkboxes (precision 39.2%), and `fill_ratio` called 17 empty boxes checked.
 
@@ -49,13 +49,13 @@ I made two choices after seeing evaluation data. I added the half-point rule aft
 
 ### 5. Straighten the page first
 
-A real upload is rarely perfectly straight. A page scanned by hand or photographed with a phone often comes in tilted a few degrees, and a scan can come in sideways. To measure that, I added the 4 originals tilted by 2 to 5° and turned 90°, plus 15 more filled appraisal reports, for 27 sample pages. The two locators failed in opposite places. OpenCV found only 33.0% of the boxes on the tilted pages, because its line removal and shape filters assume axis-aligned edges. YOLOX found 61.5% on the sideways ones. So I added a stage that straightens the page before anything else runs. With it, OpenCV + `fill_ratio` scores 94.5% end-to-end on the tilted pages and yolox + cnn 99.7% on the sideways ones.
+A real upload is rarely perfectly straight. A page scanned by hand or photographed with a phone often comes in tilted a few degrees, and a scan can come in sideways. To measure that, I added the 4 originals tilted by 2 to 5° and turned 90°, plus 15 more filled appraisal reports, for 27 sample pages. The two locators failed in opposite places. OpenCV found only 33.0% of the boxes on the tilted pages, because its line removal and shape filters assume axis-aligned edges. YOLOX found 61.5% on the sideways ones.
 
-So a straighten stage now runs before detection. RapidOCR finds the text lines, which decide quarter and half turns, a projection profile levels a tilt of up to ±10°, and the boxes are mapped back to the original image's pixels. With yolox + cnn the tilted pages now score 99.0% and the sideways ones 99.7%. Every request pays for it, at about 1.2 s per page.
+So I added a stage that straightens the page before anything else runs. RapidOCR finds the text lines, which decide quarter and half turns, a projection profile levels a tilt of up to ±10°, and the boxes are mapped back to the original image's pixels. With it, OpenCV + `fill_ratio` scores 94.5% end-to-end on the tilted pages, and yolox + cnn 99.0% on the tilted ones and 99.7% on the sideways ones. Every request pays for it, at about 1.2 s per page.
 
 ### 6. The default: yolox + cnn
 
-It is the best combination on both sets and makes no false checks on the external set. It also holds across scale, at 99.3% at 0.5×, 1× and 1.5×, while OpenCV loses 17 points at half size. OpenCV + `fill_ratio` stays as the baseline and as the fallback that needs no model files.
+It is the best combination on both sets and makes no false checks on the external set. It also holds across scale, at 99.3% at 0.5×, 1× and 1.5×, while OpenCV loses 17 points at half size. OpenCV + `fill_ratio` stays as the baseline, and can be selected with `CHECKBOX_LOCATOR=opencv CHECKBOX_CLASSIFIER=fill_ratio` when the model files are not available.
 
 ## Models and algorithms
 
@@ -131,7 +131,7 @@ What holds up:
 - Pages tilted up to ±10°, on their side or upside down are turned upright first, and the boxes come back in the original image's pixels. The tilted samples score 99.0% and the sideways ones 99.7%.
 - `yolox + cnn` scores 99.3% at 0.5×, 1× and 1.5× scale.
 - It called no empty box checked on the external set, whose layouts it never saw.
-- It needs no network, credentials or GPU, and `opencv + fill_ratio` still runs if the model files are missing.
+- It needs no network, credentials or GPU, and `opencv + fill_ratio` needs no model files, selected with `CHECKBOX_LOCATOR=opencv CHECKBOX_CLASSIFIER=fill_ratio`.
 - PDFs up to 100 pages are rendered one page at a time, so memory does not grow with the page count. At about 1.4 s per page, a full `/detect` response for such a PDF takes over two minutes, so `/detect/stream` sends each page's boxes as soon as that page is done and a client can show them while the rest is read. The demo page uses it.
 
 What does not:
@@ -147,3 +147,8 @@ What does not:
 - Train and evaluate on real appraisal scans, which the public data lack.
 - Read labels left of the box, and attach the question of the row the box answers.
 - For fillable, born-digital PDFs, read the checkbox values straight from the AcroForm fields with pypdfium2. That gives exact answers with no vision.
+- For production at HomeVision, where a job is a whole loan file:
+  - Put uploads on a queue that workers take from, answer with a job id, and scale workers with queue depth. At about 1.4 s per page, one core reads about 0.7 pages/s.
+  - Give each job a time budget from its page count and cancel it past that, and add per-client rate limits on top of the upload caps.
+  - Send uncertain boxes to a human review queue instead of straight into the appraisal record: a low locator `score`, or a state probability close to the 0.7 cut.
+  - Track the logged times and box counts, plus the share of boxes sent to review per form, to catch drift early (a new form version, a new scanner). The reviewed boxes become the next training data.
