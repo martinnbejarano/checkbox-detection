@@ -18,7 +18,7 @@ wide, often drawn as a `☐` text glyph, and most marks are hand-drawn in blue p
 
 1. Only full-resolution pages. The 640×640 copies are stretched and dropped.
 2. Only pages whose boxes are printed squares. The child-support declarations (`CSD-*`, half of `SKM_*`) mark
-   answers by circling a word. That is out of scope (spec §7, labeling policy).
+   answers by circling a word. That is out of scope: the labeling policy only counts printed squares.
 3. Only pages with at least one checked and one unchecked box. Pages are deduplicated by (file name, size).
 4. Pages are grouped by layout and image size, and the first pages of each group are taken in natural file-name
    order:
