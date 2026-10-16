@@ -7,7 +7,7 @@ import cv2
 import httpx2
 import numpy as np
 
-MODELS_DIR = Path(__file__).resolve().parents[1] / "models"  # filled by `make models`
+MODELS_DIR = Path(__file__).resolve().parents[1] / "models"  # the committed *-tuned.onnx
 
 
 def assert_problem(response: httpx2.Response, status: int) -> None:
