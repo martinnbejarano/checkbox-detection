@@ -26,7 +26,7 @@ typecheck:
 # Evaluation pages and ground truth, left out of the zip distribution; a present folder is kept.
 samples:
 	@[ -d samples ] || curl -fsSL https://github.com/martinnbejarano/checkbox-detection/archive/main.tar.gz \
-		| tar -xz --strip-components=1 checkbox-detection-main/samples checkbox-detection-main/backend/tests/data checkbox-detection-main/docs
+		| tar -xz --strip-components=1 checkbox-detection-main/samples checkbox-detection-main/backend/tests/data
 
 test: samples
 	$(BACKEND) run pytest
