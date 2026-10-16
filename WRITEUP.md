@@ -4,28 +4,29 @@
 
 The service finds the checkboxes on a page, says whether each one is checked and, on request, reads its label. The default pipeline straightens the page, locates the boxes with a fine-tuned YOLOX-Nano, classifies each one with a fine-tuned 96k-parameter CNN and reads labels with RapidOCR. It all runs on CPU through onnxruntime, with no external service.
 
-On the 27 sample pages (1,370 boxes) it scores 99.3% end-to-end. On 15 third-party pages of other forms (419 boxes) it scores 71.8% and calls no empty box checked. Neither set was used for tuning. A page takes about 1.4 s on one thread, and 1.2 s of that goes to reading its orientation. The biggest gap is data, since no real appraisal scans were available for training.
+On the 27 sample pages (1,370 boxes) it scores 99.1% end-to-end. On 15 third-party pages of other forms (419 boxes) it scores 79.2% and calls no empty box checked. Neither set was used for tuning; a validation set of 71 pages from the same public dataset as those 15 was. A page takes about 1.4 s on one thread, and 1.2 s of that goes to reading its orientation. The biggest gap is data, since no real appraisal scans were available for training.
 
 ## Results
 
-`make eval` runs every locator × classifier combination on both sets, on an Apple M4 with one thread. A box counts only if it was found at IoU ≥ 0.5 with the right state. `test_golden.py` fails when a change loses more than one box on any sample page.
+`make eval` runs every locator × classifier combination on the two evaluation sets, on an Apple M4 with one thread; `--set NAME=DIR` adds the validation set. A box counts only if it was found at IoU ≥ 0.5 with the right state. `test_golden.py` fails when a change loses more than one box on any sample page.
 
 - Samples: 27 pages and 1,370 boxes (`backend/tests/data/ground_truth/`). They are the 4 original pages, the same 4 tilted by 2 to 5° and turned 90°, and 15 more filled appraisal reports, labeled by hand under a written policy: a box is checked when an intentional mark sits mostly inside it, and a stray stroke, a watermark or a colored cell fill does not count.
-- External: 15 pages and 419 boxes from a public-domain Roboflow set of housing forms, labeled by third parties. They are not appraisal forms, the boxes are 12 to 31 px and most marks are blue pen (`backend/tests/data/external/README.md`).
+- External: 15 pages and 419 boxes from a public-domain Roboflow set of housing forms, labeled by third parties. They are not appraisal forms, the boxes are 12 to 31 px and most marks are blue pen (`backend/tests/data/external/README.md`). Never used for tuning.
+- Housing validation: 71 pages and 2,823 boxes, other pages of the same Roboflow set, built by `backend/training/housing_val.py` with the external set's rules and its pages left out. The boxes are found automatically inside the third-party regions and about 5% of them are off.
 
-| Combination           | Samples | External | p50 ms/page (samples) |
-| --------------------- | -------: | --------: | ---------------------: |
-| opencv + fill\_ratio  | 96.9    | 49.9     | 1441                  |
-| opencv + cnn          | 96.9    | 50.8     | 1301                  |
-| yolox + fill\_ratio   | 98.8    | 70.4     | 1459                  |
-| yolox + cnn (default) | 99.3    | 71.8     | 1378                  |
+| Combination           | Samples | External | Housing val | p50 ms/page (samples) |
+| --------------------- | -------: | --------: | ----------: | ---------------------: |
+| opencv + fill\_ratio  | 96.9    | 49.9     | 54.1       | 1399                  |
+| opencv + cnn          | 96.9    | 50.8     | 54.3       | 1388                  |
+| yolox + fill\_ratio   | 99.3    | 70.2     | 70.8       | 1430                  |
+| yolox + cnn (default) | 99.1    | 79.2     | 77.4       | 1351                  |
 
 ## Strengths and known limitations
 
 What holds up:
 
-- Pages tilted up to ±10°, on their side or upside down are turned upright first, and the boxes come back in the original image's pixels. The tilted samples score 99.0% and the sideways ones 99.7%.
-- `yolox + cnn` scores 99.3% at 0.5×, 1× and 1.5× scale, while OpenCV loses 17 points at half size.
+- Pages tilted up to ±10°, on their side or upside down are turned upright first, and the boxes come back in the original image's pixels. The tilted samples and the sideways ones both score 98.6%.
+- `yolox + cnn` scores 99.3%, 99.1% and 99.3% at 0.5×, 1× and 1.5× scale, while OpenCV loses 17 points at half size.
 - It called no empty box checked on the external set, whose layouts it never saw.
 - It needs no network, credentials or GPU, and `opencv + fill_ratio` needs no model files, selected with `CHECKBOX_LOCATOR=opencv CHECKBOX_CLASSIFIER=fill_ratio`.
 - PDFs up to 100 pages are rendered one page at a time, so memory does not grow with the page count. Such a PDF takes over two minutes, so `/detect/stream` sends each page's boxes as soon as that page is done. The demo page uses it.
@@ -35,12 +36,15 @@ What does not:
 - Orientation costs about 1.2 s per page, and every request pays it. A page with fewer than 5 lines of text is not turned, and tilts beyond ±10° that are not a quarter turn, and perspective from phone photos, are not corrected.
 - Round radio buttons are out of scope, since the labeling policy only counts printed squares and rectangles. Box styles that appear in neither the samples nor the training data, such as rounded corners or dashed borders, are untested and likely missed by `opencv`.
 - Labels are read only to the right of the box. A box whose label sits on its left (the utilities table on the 1004) gets `null` or a stray glyph, and long sentence labels can come out garbled.
+- On the external set the locator misses 18% of the boxes, nearly all checked ones under a heavy pen stroke. The boxes it does find get the right state 97% of the time.
 - The CNN reads a stroke that crosses an empty box as checked. `fill_ratio` handles that case but is less accurate on the external set overall.
+- A mark beside the box (a circle around it, a tick that touches a corner) is unchecked under the labeling policy. The third-party labels count it checked.
 - A request has no timeout and is not cancelled when the client disconnects: a 100-page PDF keeps a worker busy for about 2 minutes either way. The page cap is the only limit.
 
 ## Next steps
 
 - Train and evaluate on real appraisal scans, which the public data lack.
+- Train the locator on real housing pages; the Roboflow set has about 450 more. Synthetic marks barely moved its recall. The external set would then be held-out pages of a seen dataset, and the write-up has to say so.
 - Read labels left of the box, and attach the question of the row the box answers.
 - For fillable, born-digital PDFs, read the checkbox values straight from the AcroForm fields with pypdfium2. That gives exact answers with no vision.
 - For production at HomeVision, where a job is a whole loan file:
@@ -94,11 +98,11 @@ So I added a stage that straightens the page before anything else runs, describe
 
 ### 6. The default: yolox + cnn
 
-It is the best combination on both sets, makes no false checks on the external set and holds across scale. OpenCV + `fill_ratio` stays as the baseline.
+It is the best combination on every set, makes no false checks on the external set and holds across scale. OpenCV + `fill_ratio` stays as the baseline.
 
 ## Models and algorithms
 
-Every stage works on a gray page, with colour overlays such as red watermarks and blue cell fills turned white first. The models run on onnxruntime.
+Every stage but classify works on a gray page with colour overlays such as red watermarks and blue cell fills turned white first; the classifier gets plain gray, since a pen tick is saturated too. The models run on onnxruntime.
 
 ### Straighten
 
@@ -106,11 +110,11 @@ RapidOCR's text detector finds the text lines on the page shrunk to 1,600 px. If
 
 ### Locate
 
-`nutrientdocs/form-field-v1-nano` is a YOLOX-Nano detector whose ChoiceButton class is the checkbox. The page is cut into overlapping 640×640 tiles so small boxes keep their size, and the tiles are merged with NMS. The fine-tuned model was exported back to ONNX with the published input and output names, so the service only swaps the file.
+`nutrientdocs/form-field-v1-nano` is a YOLOX-Nano detector whose ChoiceButton class is the checkbox. The page is cut into overlapping 640×640 tiles so small boxes keep their size, and the tiles are merged with NMS. The training pages include synthetic ticks and crosses 1.5 to 3 sides long, so it has seen a box under a stroke. The fine-tuned model was exported back to ONNX with the published input and output names, so the service only swaps the file.
 
 ### Classify
 
-`nutrientdocs/form-field-v1-state` is a 96k-parameter network: a 3×3 convolution, five depthwise-separable blocks from 32 to 192 channels, global average pooling and a linear layer to two classes. The input is the box padded by 5% of its side, letterboxed to 40×160 gray and scaled to [-1, 1]; all crops of a page go in one batch. Softmax gives P(filled). The cut is 0.7 instead of the model's own 0.5, so an ambiguous crop comes out unchecked. Fine-tuning adds 1 to 3 specks to half of the empty crops; without them the model read any dot inside a box as checked.
+`nutrientdocs/form-field-v1-state` is a 96k-parameter network: a 3×3 convolution, five depthwise-separable blocks from 32 to 192 channels, global average pooling and a linear layer to two classes. The input is the box padded by 30% of its side (enough to hold a tick that spills past a small box), letterboxed to 40×160 plain gray and scaled to [-1, 1]; all crops of a page go in one batch. Softmax gives P(filled). The cut is 0.7 instead of the model's own 0.5, so an ambiguous crop comes out unchecked. Fine-tuning draws pads from 0 to 50% and adds 1 to 3 specks to half of the empty crops; without them the model read any dot inside a box as checked.
 
 ### Label
 
