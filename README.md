@@ -76,10 +76,10 @@ Locate and classify have two implementations each. `CHECKBOX_LOCATOR` / `CHECKBO
 | Stage | Implementation | What it does |
 | --- | --- | --- |
 | Straighten | RapidOCR + projection profile | Uses the text lines RapidOCR finds to fix pages on their side or upside down, then levels tilts up to ±10° with a projection profile. |
-| Locate | `opencv` | Classical baseline. Removes saturated color, binarizes, erases long table rules and keeps hollow, square-ish contours near the page's median box size, which drops glyphs like "O" and "D". |
-| Locate | `yolox` (default) | `nutrientdocs/form-field-v1-nano`, a 0.9M-parameter YOLOX-Nano (Apache-2.0), fine-tuned. The page is cut into overlapping tiles whose size is a fraction of the page width, each tile runs through the model, and NMS merges the results. |
-| Classify | `fill_ratio` | Ink share inside the box, after shrinking past the border. Strokes that sit mostly outside the box do not count, so a line crossing an empty box stays unchecked. |
-| Classify | `cnn` (default) | `nutrientdocs/form-field-v1-state`, a 96k-parameter CNN on 40×160 gray crops (Apache-2.0), fine-tuned. All crops of a page go through one batched run. |
+| Locate | `opencv` | Classical baseline: binarize, erase table rules, keep hollow square-ish contours near the page's median box size. |
+| Locate | `yolox` (default) | `nutrientdocs/form-field-v1-nano` (0.9M-parameter YOLOX-Nano, Apache-2.0), fine-tuned, run over overlapping tiles merged with NMS. |
+| Classify | `fill_ratio` | Ink share inside the box; strokes that sit mostly outside it do not count. |
+| Classify | `cnn` (default) | `nutrientdocs/form-field-v1-state` (96k-parameter CNN, Apache-2.0), fine-tuned, on gray crops with a third of a side of context, so a tick that spills out of the box is seen. |
 | Label | RapidOCR | Recognition only (no text detection) on a strip cut right of each box. The strip ends at the next box on the row, a vertical rule, or a blank gap after the text. |
 
 Why it is built this way:
@@ -90,7 +90,7 @@ Why it is built this way:
 
 ### Tuning
 
-The 4 original sample pages are too few to tune on, so every stage was tuned on public data and the samples are only used to evaluate. Known limits: labels are read only right of the box, round radio buttons are out of scope, and orientation costs about 1.2 s per page. Both are covered in [WRITEUP.md](WRITEUP.md).
+The 4 original sample pages are too few to tune on, so every stage was tuned on public data: synthetic pages built from blank appraisal forms, five Roboflow checkbox datasets, and a validation set of 71 scanned housing-form pages (`backend/training/housing_val.py`) from the same public dataset as the external test set, which stays unseen. The samples and the external set are only used to evaluate; `scripts/evaluate.py --set NAME=DIR` scores any other folder in the ground-truth format. Known limits: labels are read only right of the box, round radio buttons are out of scope, and orientation costs about 1.2 s per page. All of it is covered in [WRITEUP.md](WRITEUP.md).
 
 ## API
 

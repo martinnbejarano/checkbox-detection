@@ -42,11 +42,12 @@ class Pipeline:
         """The boxes on `image`, in its pixels and reading order, labelled when `labels`; and the
         seconds stage 3 took, so callers can time it apart."""
         upright = self.orienter.straighten(image)
-        # Clean gray once for stages 1-3, which take it as is. After stage 0, not before: deskew
-        # interpolates the page, and interpolated colour edges clean differently.
+        # Clean gray once for stages 1 and 3, which take it as is. After stage 0, not before:
+        # deskew interpolates the page, and interpolated colour edges clean differently. Stage 2
+        # gets the colour page, since each classifier wants its own gray.
         page = to_clean_gray(upright.image)
         rects = self.locator.locate(page)
-        states = self.classifier.classify(page, rects)
+        states = self.classifier.classify(upright.image, rects)
         boxes = sort_reading_order([Box(r, c) for r, (c, _) in zip(rects, states, strict=True)])
         label_s = 0.0
         if labels:

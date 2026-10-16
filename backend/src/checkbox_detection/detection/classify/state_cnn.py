@@ -7,7 +7,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from checkbox_detection.detection.binarize import to_clean_gray
+from checkbox_detection.detection.binarize import to_gray
 from checkbox_detection.detection.onnx import load_session
 from checkbox_detection.detection.types import Rect
 
@@ -19,9 +19,11 @@ MEAN, STD = 0.5, 0.5  # the model's input normalisation, on pixels scaled to 0-1
 @dataclass(frozen=True, slots=True)
 class StateCnnParams:
     # Tuned on validation by training/train_cnn.py tune.
-    # The crop reaches this share of the side past each box edge, so a border a locator cut a few
-    # px short is still whole.
-    pad_frac: float = 0.05
+    # The crop reaches this share of the side past each box edge, so a hand tick that spills
+    # past a small box is in the crop. Chosen end-to-end on the housing validation set: against
+    # 0.05 it halves the checked boxes read as empty there (98 to 47) and costs 3 boxes of the
+    # 1,370 samples; 0.5 gains nothing more and costs 3 more.
+    pad_frac: float = 0.3
     # P(filled) above this means checked: the model's own 0.5 plus a 0.2 margin, so an ambiguous
     # score resolves to unchecked.
     threshold: float = 0.7
@@ -35,7 +37,9 @@ class StateCnnClassifier:
     def classify(self, image: np.ndarray, rects: list[Rect]) -> list[tuple[bool, float]]:
         if not rects:
             return []
-        gray = to_clean_gray(image)
+        # Plain gray, not the clean one: a pen tick is saturated too, and the clean gray erases a
+        # blue one. The locator finds fewer boxes under a pen stroke, so it keeps the clean page.
+        gray = to_gray(image)
         crops = np.stack([crop(gray, r, self.params.pad_frac) for r in rects])[:, None]
         x = (crops.astype(np.float32) / 255 - MEAN) / STD
         logits = self.session.run(None, {self.session.get_inputs()[0].name: x})[0]

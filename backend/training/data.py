@@ -354,7 +354,9 @@ def synthetic_pages(form: str, path: Path, rng: random.Random) -> Iterator[Page]
             yield image, meta, boxes
 
 
-PEN_COLOURS = [(20, 20, 20), (140, 40, 20), (60, 60, 60)]  # BGR: black, blue ink, pencil
+# BGR: black, dark blue ink, pencil, and a bright blue-violet pen as on scanned housing forms,
+# saturated enough that `to_clean_gray` erases it and the locator sees only its dark edges.
+PEN_COLOURS = [(20, 20, 20), (140, 40, 20), (60, 60, 60), (190, 60, 70)]
 
 
 def jitter(points: list[tuple[float, float]], amount: float, rng: random.Random) -> np.ndarray:
@@ -364,16 +366,35 @@ def jitter(points: list[tuple[float, float]], amount: float, rng: random.Random)
 
 
 def draw_mark(image: np.ndarray, box: tuple[float, ...], rng: random.Random) -> None:
-    """An intentional mark mostly inside the box: X, tick, full fill, partial fill or scribble."""
+    """An intentional mark: X, tick, full fill, partial fill or scribble mostly inside the box,
+    or a big tick or X that spills 1.5 to 3 sides past it, as a hand marks a small box."""
     x1, y1, x2, y2 = box
     s = x2 - x1
     colour = rng.choice(PEN_COLOURS)
     t = max(1, round(s * rng.uniform(0.06, 0.16)))
     m = s * rng.uniform(0.1, 0.25)  # inset of the mark
     a, b, c, d = x1 + m, x2 - m, y1 + m, y2 - m
-    kind = rng.choice(["x", "x", "check", "check", "fill", "partial", "scribble"])
+    kind = rng.choice(
+        ["x", "x", "check", "check", "fill", "partial", "scribble", "big_check", "big_x"]
+    )
     wob = s * 0.04
-    if kind == "x":
+    if kind in ("big_check", "big_x"):
+        k = rng.uniform(1.5, 3.0)
+        t = max(1, round(s * rng.uniform(0.1, 0.25)))
+        if kind == "big_x":
+            cx, cy = (
+                (x1 + x2) / 2 + rng.uniform(-0.3, 0.3) * s,
+                (y1 + y2) / 2 + rng.uniform(-0.3, 0.3) * s,
+            )
+            for dx in (1, -1):
+                pts = [(cx - k * s / 2, cy - dx * k * s / 2), (cx + k * s / 2, cy + dx * k * s / 2)]
+                cv2.polylines(image, [jitter(pts, wob * k, rng)], False, colour, t, cv2.LINE_AA)
+        else:
+            # The vertex sits on the box's lower edge; the long arm runs up and right past it.
+            vx, vy = x1 + rng.uniform(0.2, 0.8) * s, y2 + rng.uniform(-0.3, 0.4) * s
+            pts = [(vx - 0.3 * k * s, vy - 0.35 * k * s), (vx, vy), (vx + 0.5 * k * s, vy - k * s)]
+            cv2.polylines(image, [jitter(pts, wob * k, rng)], False, colour, t, cv2.LINE_AA)
+    elif kind == "x":
         cv2.polylines(image, [jitter([(a, c), (b, d)], wob, rng)], False, colour, t, cv2.LINE_AA)
         cv2.polylines(image, [jitter([(b, c), (a, d)], wob, rng)], False, colour, t, cv2.LINE_AA)
     elif kind == "check":

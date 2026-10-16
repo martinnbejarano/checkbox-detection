@@ -222,8 +222,18 @@ if __name__ == "__main__":
         "--scales", default="1", help="comma-separated resize factors, e.g. 0.5,1,1.5"
     )
     parser.add_argument("--labels", action="store_true", help="also run and score the label stage")
+    parser.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="NAME=DIR",
+        help="another folder of ground-truth JSON files to score, like the external set",
+    )
     args = parser.parse_args()
     scales = sorted({1.0, *(float(x) for x in args.scales.split(","))})
+    for item in args.set:
+        name, _, folder = item.partition("=")
+        SETS[name] = Path(folder).resolve()
     main(
         [args.locator] if args.locator else list(LOCATORS),
         [args.classifier] if args.classifier else list(CLASSIFIERS),

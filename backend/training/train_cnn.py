@@ -17,7 +17,7 @@ import torch
 from common import MODELS, PRETRAINED, RUNS, boxes_by_image, load_rgb, split
 from torch import nn
 
-from checkbox_detection.detection.binarize import to_clean_gray
+from checkbox_detection.detection.binarize import to_gray
 from checkbox_detection.detection.classify.state_cnn import (
     HEIGHT,
     MEAN,
@@ -35,9 +35,9 @@ STATE_URL = "https://huggingface.co/nutrientdocs/form-field-v1-state/resolve/62b
 # A locator's box is a few px off; train crops move each edge by up to this share of the side.
 EDGE_JITTER = 0.1
 CROPS_PER_BOX = 3  # jittered copies per training box
-PAD_FRACS = (0.0, 0.05, 0.1, 0.15)  # StateCnnParams.pad_frac candidates; training draws from them
-# Interior ink share: below it in clean gray but above it in plain gray = erased mark.
-ERASED_INK = 0.03
+# StateCnnParams.pad_frac candidates; training draws from them. The large ones show the model a
+# mark that spills past a small box, as a hand tick on a housing form does.
+PAD_FRACS = (0.0, 0.05, 0.15, 0.3, 0.5)
 SPECK_SHARE = 0.5  # empty training crops that get 1-3 specks of dust or toner
 THRESHOLDS = np.round(np.arange(0.5, 0.96, 0.05), 2)  # StateCnnParams.threshold candidates
 
@@ -78,12 +78,8 @@ def crops(
     """(crops uint8 [n, 40, 160], labels [n]) for every trusted-state box of a split.
 
     With several crops per box each one moves the box edges a little; the pad is `pad`, or one of
-    PAD_FRACS at random per crop.
-
-    A checked box whose mark the clean gray erases (a colour tick, as `to_clean_gray` removes
-    colour overlays) is left out: the model would see an empty box labelled checked. About 21% of
-    the checked training boxes were like that, and the model learned to call empty boxes with a
-    thick border checked.
+    PAD_FRACS at random per crop. Plain gray, as `StateCnnClassifier` reads: the clean gray would
+    erase a colour tick and leave an empty box labelled checked.
     """
     coco = split(name)
     xs, ys = [], []
@@ -91,15 +87,9 @@ def crops(
         boxes = [b for b in boxes if b["checked"] is not None]
         if not boxes:
             continue
-        rgb = load_rgb(coco, image)
-        gray = to_clean_gray(rgb)
-        plain = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+        gray = to_gray(load_rgb(coco, image))
         for b in boxes:
             x, y, w, h = b["bbox"]
-            if b["checked"] and interior_ink(gray, b["bbox"]) < ERASED_INK < interior_ink(
-                plain, b["bbox"]
-            ):
-                continue
             for _ in range(per_box):
                 j = EDGE_JITTER if per_box > 1 else 0.0
                 rect = Rect(
@@ -112,14 +102,6 @@ def crops(
                 xs.append(crop(gray, rect, rng.choice(PAD_FRACS) if pad is None else pad))
                 ys.append(int(b["checked"]))
     return np.stack(xs), np.array(ys)
-
-
-def interior_ink(gray: np.ndarray, bbox: list[float]) -> float:
-    """Share of dark pixels inside the box, a fifth of the side in from each edge."""
-    x, y, w, h = bbox
-    m = round(0.2 * min(w, h))
-    inside = gray[round(y) + m : round(y + h) - m, round(x) + m : round(x + w) - m]
-    return float(np.mean(inside < 128)) if inside.size else 0.0
 
 
 def to_input(batch: np.ndarray) -> torch.Tensor:

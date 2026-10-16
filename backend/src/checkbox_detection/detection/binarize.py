@@ -23,6 +23,11 @@ class BinarizeParams:
     min_overlay_value: int = 100
 
 
+def to_gray(image: np.ndarray) -> np.ndarray:
+    """Plain grayscale. A gray image is returned unchanged."""
+    return image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+
+
 def to_clean_gray(image: np.ndarray, params: BinarizeParams | None = None) -> np.ndarray:
     """Grayscale with colour overlays turned to paper. A gray image is returned unchanged."""
     if image.ndim == 2:
@@ -32,7 +37,7 @@ def to_clean_gray(image: np.ndarray, params: BinarizeParams | None = None) -> np
     overlay = (hsv[..., 1] > params.min_overlay_saturation) & (
         hsv[..., 2] >= params.min_overlay_value
     )
-    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    gray = to_gray(image)
     gray[overlay] = 255
     return gray
 
