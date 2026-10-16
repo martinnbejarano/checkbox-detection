@@ -9,3 +9,4 @@ backend/models/*
 !backend/models/*-tuned.onnx
 frontend/node_modules
 frontend/dist
+docs

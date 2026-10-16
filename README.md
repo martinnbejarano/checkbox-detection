@@ -18,7 +18,7 @@ Open <http://localhost:8000> for the demo page; the API is on the same port. The
 ### curl
 
 ```sh
-curl -F file=@samples/sample-003.png http://localhost:8000/detect
+curl -F file=@frontend/public/samples/sample-003.png http://localhost:8000/detect
 ```
 
 ```json
@@ -32,7 +32,7 @@ curl -F file=@samples/sample-003.png http://localhost:8000/detect
 With labels:
 
 ```sh
-curl -F file=@samples/sample-003.png "http://localhost:8000/detect?labels=true"
+curl -F file=@frontend/public/samples/sample-003.png "http://localhost:8000/detect?labels=true"
 ```
 
 ```json
@@ -148,7 +148,7 @@ WRITEUP.md        how the design was reached, why yolox + cnn,
 
 ## Development
 
-Needs [uv](https://docs.astral.sh/uv/) and Node.
+Needs [uv](https://docs.astral.sh/uv/) and Node. From the zip distribution, `make test` first fetches the evaluation pages from this repository (`make samples`).
 
 ```sh
 make install

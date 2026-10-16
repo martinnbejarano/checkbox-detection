@@ -1,7 +1,7 @@
 BACKEND = uv --directory backend
 FRONTEND = npm --prefix frontend
 
-.PHONY: install models lint typecheck test eval check run frontend-dev frontend-build docker-build docker-run
+.PHONY: install models samples lint typecheck test eval check run frontend-dev frontend-build docker-build docker-run
 
 install:
 	$(BACKEND) sync
@@ -23,11 +23,16 @@ lint:
 typecheck:
 	$(BACKEND) run mypy
 
-test:
+# Evaluation pages and ground truth, left out of the zip distribution; a present folder is kept.
+samples:
+	@[ -d samples ] || curl -fsSL https://github.com/martinnbejarano/checkbox-detection/archive/main.tar.gz \
+		| tar -xz --strip-components=1 checkbox-detection-main/samples checkbox-detection-main/backend/tests/data checkbox-detection-main/docs
+
+test: samples
 	$(BACKEND) run pytest
 
 # Markdown tables per locator x classifier combo: samples, external set, by tag, by scale, labels.
-eval:
+eval: samples
 	$(BACKEND) run python scripts/evaluate.py --scales 0.5,1,1.5 --labels
 
 check: lint typecheck test frontend-build
